@@ -15,6 +15,7 @@ struct PaletteColor: Hashable, Sendable, Codable {
     }
 
     var nsColor: NSColor { NSColor(srgbRed: red, green: green, blue: blue, alpha: 1) }
+    var cgColor: CGColor { CGColor(srgbRed: red, green: green, blue: blue, alpha: 1) }
     var color: Color { Color(.sRGB, red: red, green: green, blue: blue, opacity: 1) }
 
     static let white = PaletteColor(red: 1, green: 1, blue: 1)

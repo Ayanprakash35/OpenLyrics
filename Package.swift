@@ -12,8 +12,7 @@ let package = Package(
         .testTarget(
             name: "OpenLyricsTests",
             dependencies: ["OpenLyrics"],
-            path: "Tests/OpenLyricsTests",
-            resources: [.copy("Fixtures")]
+            path: "Tests/OpenLyricsTests"
         ),
     ]
 )
