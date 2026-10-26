@@ -18,6 +18,9 @@ struct WordFlowLayout: Layout {
     var spacing: CGFloat
     /// Gap between rows.
     var lineSpacing: CGFloat
+    /// Widest a row may be, however much room is offered; the layout is only as wide as its
+    /// widest row, so a backdrop behind it hugs the words.
+    var maxWidth: CGFloat = .infinity
 
     struct Row {
         var items: [(index: Int, size: CGSize, x: CGFloat)] = []
@@ -26,7 +29,7 @@ struct WordFlowLayout: Layout {
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = arrange(subviews, maxWidth: proposal.width ?? .infinity)
+        let rows = arrange(subviews, maxWidth: min(proposal.width ?? .infinity, maxWidth))
         let width = rows.map(\.width).max() ?? 0
         let height = rows.map(\.height).reduce(0, +) + lineSpacing * CGFloat(max(rows.count - 1, 0))
         return CGSize(width: width, height: height)
@@ -34,7 +37,8 @@ struct WordFlowLayout: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         var y = bounds.minY
-        for row in arrange(subviews, maxWidth: bounds.width) {
+        // Half a point of slack: bounds.width is the measured width, and rounding must not rewrap.
+        for row in arrange(subviews, maxWidth: min(bounds.width + 0.5, maxWidth)) {
             let originX = bounds.minX + (bounds.width - row.width) / 2
             for item in row.items {
                 subviews[item.index].place(

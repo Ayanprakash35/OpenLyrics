@@ -69,8 +69,35 @@ final class LyricsCoordinator {
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.refreshOverlay() } }
         }.store(in: &cancellables)
 
-        monitor.start()
+        if Diagnostics.isDemo {
+            startDemo()
+        } else {
+            monitor.start()
+        }
         refreshOverlay()
+    }
+
+    /// Plays the built-in demo lyrics on a loop instead of following a player.
+    private func startDemo() {
+        logger.notice("Demo mode")
+        let track = Diagnostics.demoTrack
+        nowPlaying = .playing(track)
+        session.begin(track)
+        session.setLookup(.found(Diagnostics.demoLyrics))
+        session.palette = Diagnostics.demoPalette
+        session.isPlaying = true
+        restartDemoClock()
+        Timer.scheduledTimer(withTimeInterval: Diagnostics.demoDuration, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.restartDemoClock() }
+        }
+        onChange?()
+    }
+
+    private func restartDemoClock() {
+        let sample = NowPlayingMonitor.PositionSample(
+            state: .playing, trackID: Diagnostics.demoTrack.id, position: 0, duration: Diagnostics.demoDuration
+        )
+        session.clock = PlaybackClock(sample: sample, at: ProcessInfo.processInfo.systemUptime)
     }
 
     func stop() {

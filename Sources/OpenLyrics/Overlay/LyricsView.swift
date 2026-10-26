@@ -112,15 +112,19 @@ struct LyricsStage: View {
                 }
             }
             if style.showNextLine, let next {
-                Text(next.text)
-                    .font(style.nextFont)
-                    .foregroundStyle(.white.opacity(0.55))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .frame(maxWidth: style.maxLineWidth * 0.9)
-                    .shadow(color: .black.opacity(0.45), radius: 4, y: 1)
-                    .id(next.start)
-                    .transition(.opacity.combined(with: .offset(y: style.fontSize * 0.4)))
+                WordFlowLayout(spacing: style.wordSpacing * 0.55, lineSpacing: style.fontSize * 0.08, maxWidth: style.maxLineWidth * 0.9) {
+                    ForEach(Array(next.words.enumerated()), id: \.offset) { index, word in
+                        Text(word.text)
+                            .font(style.nextFont)
+                            .foregroundStyle(.white.opacity(0.55))
+                            .fixedSize()
+                            .layoutValue(key: SpaceAfterKey.self, value: word.spaceAfter)
+                            .layoutValue(key: BreakBeforeKey.self, value: LineView.canBreak(before: index, in: next))
+                    }
+                }
+                .shadow(color: .black.opacity(0.45), radius: 4, y: 1)
+                .id(next.start)
+                .transition(.opacity.combined(with: .offset(y: style.fontSize * 0.4)))
             }
         }
         .padding(.horizontal, style.backdrop ? style.fontSize * 0.75 : 0)
@@ -158,18 +162,17 @@ struct LineView: View {
         if line.isGap {
             GapDots(progress: line.end > line.start ? (time - line.start) / (line.end - line.start) : 1, style: style)
         } else {
-            WordFlowLayout(spacing: style.wordSpacing, lineSpacing: style.fontSize * 0.12) {
+            WordFlowLayout(spacing: style.wordSpacing, lineSpacing: style.fontSize * 0.12, maxWidth: style.maxLineWidth) {
                 ForEach(Array(line.words.enumerated()), id: \.offset) { index, word in
                     KaraokeWord(text: word.text, progress: word.progress(at: time), style: style)
                         .layoutValue(key: SpaceAfterKey.self, value: word.spaceAfter)
-                        .layoutValue(key: BreakBeforeKey.self, value: canBreak(before: index))
+                        .layoutValue(key: BreakBeforeKey.self, value: Self.canBreak(before: index, in: line))
                 }
             }
-            .frame(maxWidth: style.maxLineWidth)
         }
     }
 
-    private func canBreak(before index: Int) -> Bool {
+    static func canBreak(before index: Int, in line: LyricLine) -> Bool {
         guard index > 0 else { return true }
         let previous = line.words[index - 1]
         if previous.spaceAfter { return true }
