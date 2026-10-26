@@ -88,6 +88,9 @@ final class PositionTracker {
         // The runner times the script itself; without that, the midpoint of the whole round trip.
         let measured = sample.measuredAt > 0 ? sample.measuredAt : (started + now()) / 2
         if var running = clock {
+            // How far the clock had wandered from the player: the sync error between samples.
+            let drift = sample.position - running.position(at: measured)
+            logger.debug("Position sample: drift \(String(format: "%+.3f", drift), privacy: .public) s, \(sample.state == .playing ? "playing" : "paused", privacy: .public)")
             running.apply(sample, at: measured)
             clock = running
         } else {
