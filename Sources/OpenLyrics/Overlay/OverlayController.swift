@@ -18,7 +18,10 @@ enum OverlayConfig {
 @MainActor
 final class OverlayWindow {
     let surface: OverlaySurface
+    private let logger = Logger(subsystem: "com.openlyrics.app", category: "Overlay")
     private let window: NSWindow
+    /// The frame the window should have: its screen's, in global coordinates.
+    private var screenFrame: NSRect
     private let hosting: NSHostingView<LyricsOverlayView>
     private let session: LyricsSession
     private let settings: Settings
@@ -28,6 +31,7 @@ final class OverlayWindow {
         self.surface = surface
         self.session = session
         self.settings = settings
+        screenFrame = screen.frame
         hosting = NSHostingView(rootView: LyricsOverlayView(
             session: session, settings: settings, surface: surface, screenInsets: Self.insets(of: screen)
         ))
@@ -62,7 +66,15 @@ final class OverlayWindow {
     func setVisible(_ visible: Bool, animated: Bool = true) {
         guard visible != isVisible else { return }
         isVisible = visible
-        if visible { hosting.isHidden = false }
+        if visible {
+            // The window server can resize a window on a private space (seen: the lock-screen window
+            // 97 pt taller than its screen); put it back before it shows.
+            if window.frame != screenFrame {
+                logger.notice("\(String(describing: self.surface), privacy: .public) window was \(NSStringFromRect(self.window.frame), privacy: .public); resetting to its screen")
+                window.setFrame(screenFrame, display: false)
+            }
+            hosting.isHidden = false
+        }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = animated ? OverlayConfig.fadeDuration : 0
             window.animator().alphaValue = visible ? 1 : 0
@@ -75,6 +87,7 @@ final class OverlayWindow {
     }
 
     func updateScreen(_ screen: NSScreen) {
+        screenFrame = screen.frame
         window.setFrame(screen.frame, display: true)
         hosting.rootView = LyricsOverlayView(session: session, settings: settings, surface: surface, screenInsets: Self.insets(of: screen))
         // Ordering front again is harmless on the desktop and re-asserts the window after a

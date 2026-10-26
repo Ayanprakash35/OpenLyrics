@@ -2,27 +2,27 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key>
-    <string>OpenLyrics</string>
-    <key>CFBundleDisplayName</key>
-    <string>OpenLyrics</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.openlyrics.app</string>
-    <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
-    <key>CFBundleExecutable</key>
-    <string>OpenLyrics</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>14.0</string>
-    <key>LSUIElement</key>
-    <true/>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <key>NSAppleEventsUsageDescription</key>
-    <string>OpenLyrics reads the current track, its playback position and its artwork from Music or Spotify to show synced lyrics. It never controls playback.</string>
+	<key>CFBundleDisplayName</key>
+	<string>OpenLyrics</string>
+	<key>CFBundleExecutable</key>
+	<string>OpenLyrics</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.openlyrics.app</string>
+	<key>CFBundleName</key>
+	<string>OpenLyrics</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.1</string>
+	<key>CFBundleVersion</key>
+	<string>2</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>OpenLyrics reads the current track, its playback position and its artwork from Music or Spotify to show synced lyrics. It never controls playback.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
 </dict>
 </plist>

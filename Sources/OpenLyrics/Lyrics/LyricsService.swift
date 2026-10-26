@@ -11,17 +11,64 @@ enum LyricsLookup: Equatable, Sendable {
     case unavailable
 }
 
+/// Lookup tuning.
+enum LyricsServiceConfig {
+    /// A match ranked at least this high (`LyricsService.rank`) is taken the moment it arrives,
+    /// without waiting for slower providers. 1.12 means a word-timed match of confidence 0.97 or
+    /// more: nothing another provider could send would show better. Sane range: 1.05–1.15.
+    static let decisiveRank = 1.12
+    /// Seconds to keep waiting for a better answer once a synced match is in. Sane range: 0.5–3.
+    static let gracePeriod: TimeInterval = 1.5
+    /// Seconds a provider that couldn't be reached is left out of lookups, so a blocked or down
+    /// service doesn't hold every song up until it times out. Sane range: 60–1800.
+    static let unreachableCooldown: TimeInterval = 300
+}
+
 /// Finds a track's lyrics: asks every enabled provider at once and keeps the best answer, ranked by
 /// how well the provider's track matched plus how precisely its lyrics are timed. Answers are
 /// cached on disk, so replaying a song never goes to the network.
+///
+/// The lookup doesn't wait for the slowest provider: a decisive match ends it at once, and any
+/// synced match ends it `gracePeriod` later. A provider that couldn't be reached sits out for
+/// `unreachableCooldown` (unless every enabled provider is sitting out).
 actor LyricsService {
     private let logger = Logger(subsystem: "com.openlyrics.app", category: "Lyrics")
     private let providers: [any LyricsProvider]
     private let cache: LyricsCache?
+    private let decisiveRank: Double
+    private let gracePeriod: TimeInterval
+    private let unreachableCooldown: TimeInterval
+    private let now: @Sendable () -> Date
+    /// When each provider that recently failed may be asked again.
+    private var sittingOutUntil: [LyricsProviderID: Date] = [:]
 
-    init(providers: [any LyricsProvider] = [LRCLibProvider(), NetEaseProvider()], cache: LyricsCache? = .standard) {
+    init(
+        providers: [any LyricsProvider] = [LRCLibProvider(), NetEaseProvider()],
+        cache: LyricsCache? = .standard,
+        decisiveRank: Double = LyricsServiceConfig.decisiveRank,
+        gracePeriod: TimeInterval = LyricsServiceConfig.gracePeriod,
+        unreachableCooldown: TimeInterval = LyricsServiceConfig.unreachableCooldown,
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) {
         self.providers = providers
         self.cache = cache
+        self.decisiveRank = decisiveRank
+        self.gracePeriod = gracePeriod
+        self.unreachableCooldown = unreachableCooldown
+        self.now = now
+    }
+
+    /// How one provider's request ended.
+    private enum Outcome: Sendable {
+        case answered(ProviderMatch?)
+        case unreachable
+        /// Stopped because the lookup had already decided.
+        case cancelled
+    }
+
+    private enum Event: Sendable {
+        case provider(LyricsProviderID, Outcome)
+        case graceOver
     }
 
     func lookup(_ query: TrackQuery, using enabled: Set<LyricsProviderID>, bypassCache: Bool = false) async -> LyricsLookup {
@@ -30,43 +77,85 @@ actor LyricsService {
             logger.debug("Lyrics from cache")
             return cached
         }
-        let active = providers.filter { enabled.contains($0.id) }
-        guard !active.isEmpty else { return .notFound }
+        let enabledProviders = providers.filter { enabled.contains($0.id) }
+        guard !enabledProviders.isEmpty else { return .notFound }
+        let started = now()
+        let available = enabledProviders.filter { (sittingOutUntil[$0.id] ?? .distantPast) <= started }
+        // With everything sitting out, ask anyway rather than give up.
+        let active = available.isEmpty ? enabledProviders : available
+        for skipped in enabledProviders where !active.contains(where: { $0.id == skipped.id }) {
+            logger.info("\(skipped.id.displayName, privacy: .public): skipped, unreachable recently")
+        }
 
         var matches: [ProviderMatch] = []
-        var answered = 0
-        await withTaskGroup(of: (LyricsProviderID, ProviderMatch?, Bool).self) { group in
+        var answeredIDs: [LyricsProviderID] = []
+        var unreachable: [LyricsProviderID] = []
+        let decisiveRank = self.decisiveRank
+        let gracePeriod = self.gracePeriod
+        await withTaskGroup(of: Event.self) { group in
             for provider in active {
                 group.addTask {
                     do {
-                        return (provider.id, try await provider.lyrics(for: query), true)
+                        return .provider(provider.id, .answered(try await provider.lyrics(for: query)))
                     } catch {
-                        return (provider.id, nil, false)
+                        return .provider(provider.id, Task.isCancelled ? .cancelled : .unreachable)
                     }
                 }
             }
-            for await (id, match, didAnswer) in group {
-                if didAnswer { answered += 1 }
-                if let match { matches.append(match) }
-                let outcome = match.map { "\($0.lyrics.kind.rawValue), confidence \(String(format: "%.2f", $0.confidence))" }
-                    ?? (didAnswer ? "nothing" : "unreachable")
-                logger.info("\(id.displayName, privacy: .public): \(outcome, privacy: .public)")
+            var pending = active.count
+            var graceStarted = false
+            events: while let event = await group.next() {
+                switch event {
+                case .graceOver:
+                    logger.debug("Grace period over; not waiting for \(pending, privacy: .public) more")
+                    break events
+                case .provider(let id, let outcome):
+                    pending -= 1
+                    switch outcome {
+                    case .answered(let match):
+                        answeredIDs.append(id)
+                        if let match { matches.append(match) }
+                        let description = match.map { "\($0.lyrics.kind.rawValue), confidence \(String(format: "%.2f", $0.confidence))" } ?? "nothing"
+                        logger.info("\(id.displayName, privacy: .public): \(description, privacy: .public)")
+                        if let match, Self.rank(match) >= decisiveRank { break events }
+                        if let match, match.lyrics.isSynced, !graceStarted, pending > 0 {
+                            graceStarted = true
+                            group.addTask {
+                                try? await Task.sleep(for: .seconds(gracePeriod))
+                                return .graceOver
+                            }
+                        }
+                    case .unreachable:
+                        unreachable.append(id)
+                        logger.info("\(id.displayName, privacy: .public): unreachable")
+                    case .cancelled:
+                        break
+                    }
+                    if pending == 0 { break events }
+                }
             }
+            // Providers still running (and the grace timer) are no longer needed.
+            group.cancelAll()
         }
+
+        let finished = now()
+        for id in unreachable { sittingOutUntil[id] = finished.addingTimeInterval(unreachableCooldown) }
+        for id in answeredIDs { sittingOutUntil[id] = nil }
 
         let result: LyricsLookup
         if let best = matches.max(by: { Self.rank($0) < Self.rank($1) }) {
             result = .found(best.lyrics)
         } else {
-            result = answered > 0 ? .notFound : .unavailable
+            result = answeredIDs.isEmpty ? .unavailable : .notFound
         }
-        // "Not found" is only remembered when every provider said so: one that couldn't be
-        // reached might have the lyrics next time.
+        // "Not found" is only remembered when every enabled provider said so: one that was skipped,
+        // couldn't be reached or wasn't waited for might have the lyrics next time.
         if case .found = result {
             cache?.store(result, for: key)
-        } else if result == .notFound, answered == active.count {
+        } else if result == .notFound, answeredIDs.count == enabledProviders.count {
             cache?.store(result, for: key)
         }
+        logger.info("Lookup took \(String(format: "%.1f", finished.timeIntervalSince(started)), privacy: .public) s")
         return result
     }
 

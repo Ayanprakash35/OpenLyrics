@@ -122,13 +122,25 @@ struct ProviderReplyTests {
     }
 }
 
-/// A provider with a fixed answer.
+/// Counts calls across concurrent tasks.
+private actor CallCounter {
+    private(set) var count = 0
+    func increment() { count += 1 }
+}
+
+/// A provider with a fixed answer, given after `delay`.
 private struct FakeProvider: LyricsProvider {
     let id: LyricsProviderID
     let answer: Result<ProviderMatch?, ProviderError>
+    var delay: Duration = .zero
+    var calls: CallCounter?
 
     func lyrics(for query: TrackQuery) async throws(ProviderError) -> ProviderMatch? {
-        try answer.get()
+        await calls?.increment()
+        if delay > .zero {
+            do { try await Task.sleep(for: delay) } catch { throw .unreachable }
+        }
+        return try answer.get()
     }
 }
 
@@ -199,6 +211,108 @@ struct LyricsServiceTests {
         let offline = LyricsService(providers: [FakeProvider(id: .lrclib, answer: .failure(.unreachable))], cache: cache)
         #expect(await offline.lookup(query, using: both) == .found(lyrics(.lineSynced, from: "A")))
         #expect(await offline.lookup(query, using: both, bypassCache: true) == .unavailable)
+    }
+}
+
+@Suite("Lyrics service: not waiting on slow sources")
+struct LyricsServiceTimingTests {
+    private let query = TrackQuery(title: "Harbor Lights", artist: "The Tides", album: "", duration: 200)
+    private let both = Set(LyricsProviderID.allCases)
+
+    private func elapsed(_ work: () async -> Void) async -> Duration {
+        let clock = ContinuousClock()
+        let start = clock.now
+        await work()
+        return clock.now - start
+    }
+
+    @Test func aDecisiveMatchDoesNotWaitForASlowProvider() async {
+        let service = LyricsService(providers: [
+            FakeProvider(id: .lrclib, answer: .success(nil), delay: .seconds(10)),
+            FakeProvider(id: .netease, answer: .success(ProviderMatch(lyrics: lyrics(.wordSynced, from: "B"), confidence: 1))),
+        ], cache: nil, gracePeriod: 5)
+        var result: LyricsLookup?
+        let time = await elapsed { result = await service.lookup(query, using: both) }
+        #expect(result == .found(lyrics(.wordSynced, from: "B")))
+        #expect(time < .seconds(2))
+    }
+
+    @Test func aBetterMatchWithinTheGracePeriodWins() async {
+        let service = LyricsService(providers: [
+            FakeProvider(id: .lrclib, answer: .success(ProviderMatch(lyrics: lyrics(.lineSynced, from: "A"), confidence: 1))),
+            FakeProvider(id: .netease, answer: .success(ProviderMatch(lyrics: lyrics(.wordSynced, from: "B"), confidence: 1)), delay: .milliseconds(200)),
+        ], cache: nil, gracePeriod: 3)
+        #expect(await service.lookup(query, using: both) == .found(lyrics(.wordSynced, from: "B")))
+    }
+
+    @Test func theGracePeriodEndsTheWait() async {
+        let service = LyricsService(providers: [
+            FakeProvider(id: .lrclib, answer: .success(ProviderMatch(lyrics: lyrics(.lineSynced, from: "A"), confidence: 1))),
+            FakeProvider(id: .netease, answer: .success(ProviderMatch(lyrics: lyrics(.wordSynced, from: "B"), confidence: 1)), delay: .seconds(10)),
+        ], cache: nil, gracePeriod: 0.3)
+        var result: LyricsLookup?
+        let time = await elapsed { result = await service.lookup(query, using: both) }
+        #expect(result == .found(lyrics(.lineSynced, from: "A")))
+        #expect(time < .seconds(2))
+    }
+
+    @Test func anUnreachableProviderSitsOutThenComesBack() async {
+        let failing = CallCounter()
+        let clock = MutableClock()
+        let service = LyricsService(providers: [
+            FakeProvider(id: .lrclib, answer: .failure(.unreachable), calls: failing),
+            FakeProvider(id: .netease, answer: .success(ProviderMatch(lyrics: lyrics(.lineSynced, from: "B"), confidence: 1))),
+        ], cache: nil, unreachableCooldown: 300, now: { clock.date })
+        _ = await service.lookup(query, using: both)
+        _ = await service.lookup(query, using: both)
+        #expect(await failing.count == 1)
+        clock.date = clock.date.addingTimeInterval(301)
+        _ = await service.lookup(query, using: both)
+        #expect(await failing.count == 2)
+    }
+
+    @Test func withEverythingSittingOutItAsksAnyway() async {
+        let failing = CallCounter()
+        let service = LyricsService(providers: [
+            FakeProvider(id: .lrclib, answer: .failure(.unreachable), calls: failing),
+        ], cache: nil)
+        #expect(await service.lookup(query, using: both) == .unavailable)
+        #expect(await service.lookup(query, using: both) == .unavailable)
+        #expect(await failing.count == 2)
+    }
+
+    @Test func aProviderCutShortIsNotMarkedUnreachable() async {
+        let slow = CallCounter()
+        let service = LyricsService(providers: [
+            FakeProvider(id: .lrclib, answer: .success(nil), delay: .seconds(10), calls: slow),
+            FakeProvider(id: .netease, answer: .success(ProviderMatch(lyrics: lyrics(.wordSynced, from: "B"), confidence: 1))),
+        ], cache: nil)
+        _ = await service.lookup(query, using: both)
+        _ = await service.lookup(query, using: both, bypassCache: true)
+        #expect(await slow.count == 2)
+    }
+
+    @Test func notFoundIsNotCachedWhenASourceWasSkipped() async {
+        let cache = temporaryCache()
+        defer { cache.clear() }
+        let service = LyricsService(providers: [
+            FakeProvider(id: .lrclib, answer: .failure(.unreachable)),
+            FakeProvider(id: .netease, answer: .success(nil)),
+        ], cache: cache)
+        #expect(await service.lookup(query, using: both) == .notFound)
+        // LRCLIB now sits out, so this "not found" hasn't heard from every source either.
+        #expect(await service.lookup(query, using: both, bypassCache: true) == .notFound)
+        #expect(cache.load(LyricsCache.key(for: query)) == nil)
+    }
+}
+
+/// A settable date, readable from any thread.
+private final class MutableClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = Date(timeIntervalSince1970: 1_000_000)
+    var date: Date {
+        get { lock.withLock { value } }
+        set { lock.withLock { value = newValue } }
     }
 }
 

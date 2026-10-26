@@ -51,7 +51,7 @@ struct LyricsOverlayView: View {
             highlight: palette.primary.color,
             glow: palette.secondary.color,
             showNextLine: settings.showNextLine,
-            backdrop: surface == .desktop,
+            backdrop: false,
             surface: surface
         )
     }
