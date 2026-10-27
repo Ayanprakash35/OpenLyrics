@@ -114,13 +114,25 @@ struct WordIconView: View {
     var body: some View {
         let pop = Motion.backOut(age, duration: 0.38, overshoot: 2.6)
         let motion = IconMotionState(icon.motion, age: max(0, age))
-        Image(systemName: icon.symbol)
-            .font(.system(size: size, weight: .bold))
-            .foregroundStyle(color)
+        glyph
             .scaleEffect(max(0.001, pop * motion.scale * (1 + 0.18 * beat)))
             .rotationEffect(.degrees(motion.rotation))
             .offset(y: motion.lift * size)
             .opacity(Motion.clamp(age / 0.08))
+    }
+}
+
+extension WordIconView {
+    /// An SF Symbol in the highlight color, or an emoji in its own colors.
+    @ViewBuilder
+    fileprivate var glyph: some View {
+        if icon.isEmoji {
+            Text(icon.symbol).font(.system(size: size * 0.92))
+        } else {
+            Image(systemName: icon.symbol)
+                .font(.system(size: size, weight: .bold))
+                .foregroundStyle(color)
+        }
     }
 }
 

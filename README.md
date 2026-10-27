@@ -26,9 +26,10 @@ The now-playing detection and album-color extraction come from
   - **Lens** — the song's words on a curved column under a lens; the sung word rolls to the middle,
     closest to the glass.
   - **Lines** — one line at a time, filling word by word, with the next line underneath.
-- **Word icons.** Over 260 everyday lyric words (love, rain, fire, dance, night, money…), and their
-  plural, -ing and -ed forms, get an
-  SF Symbol that pops in beside them and keeps moving — bouncing, pulsing, wiggling, spinning.
+- **Word icons.** Over 1,000 everyday lyric words — you, me, love, call, wait, rain, fire, dance,
+  night, money, angels, pizza… — and their plural, -ing and -ed forms get an SF Symbol in the
+  highlight color, or an emoji where no symbol fits. It pops in beside the word and keeps moving:
+  bouncing, pulsing, wiggling, spinning. About a third of the words in a typical song have one.
 - **Colors from the album.** Lyric text, highlight and secondary text come from the cover art and
   change with the song — or pick all three yourself.
 - **Moves with the music** (optional). Listens to your Mac's sound output and swells the words and

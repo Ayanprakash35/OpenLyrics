@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.1 — 2026-10-27
+
+- **Four times the word icons**: over 1,000 words (from 266), now including the words songs use
+  most — you, me, we, tell, call, wait, need, see, start, life, good, beautiful, numbers — plus
+  animals, food, places and more. A typical song now has an icon on 25–40% of its words.
+- **Emoji** for things SF Symbols doesn't draw (angels, ghosts, roses, pizza, rockets, diamonds…),
+  shown in their own colors.
+- Two-letter words (me, we, us, up, go, no) can have icons; endings are never stripped down to two
+  letters, so "uses" doesn't match "us".
+
 ## 0.2.0 — 2026-10-27
 
 - **Kinetic styles, after Verci.** *Stack*: a word wall that drifts in 3D — the word being sung in

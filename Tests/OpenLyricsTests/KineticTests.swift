@@ -187,9 +187,28 @@ struct WordIconTests {
         #expect(WordIcons.icon(for: word)?.symbol == symbol)
     }
 
-    @Test(arguments: ["the", "a", "of", "and", "xyzzy", ""])
+    @Test(arguments: [
+        ("you", "person.fill"), ("We", "person.2.fill"), ("me", "person.crop.circle.fill"),
+        ("call", "phone.fill"), ("wait", "hourglass"), ("minutes", "clock.fill"), ("chances", "dice.fill"),
+        ("blew", "wind"), ("telling", "bubble.left.fill"), ("start", "play.fill"), ("up", "arrow.up.circle.fill"),
+    ])
+    func everydayWords(word: String, symbol: String) {
+        #expect(WordIcons.icon(for: word)?.symbol == symbol)
+    }
+
+    @Test(arguments: ["the", "a", "of", "and", "xyzzy", "", "uses", "i"])
     func ignores(word: String) {
         #expect(WordIcons.icon(for: word) == nil)
+    }
+
+    @Test func emojiForThingsSymbolsLack() throws {
+        let angel = try #require(WordIcons.icon(for: "Angels"))
+        #expect(angel.isEmoji && angel.symbol == "😇")
+        #expect(WordIcons.icon(for: "heart")?.isEmoji == false)
+    }
+
+    @Test func vocabularyIsLarge() {
+        #expect(WordIcons.vocabularySize >= 1000)
     }
 }
 

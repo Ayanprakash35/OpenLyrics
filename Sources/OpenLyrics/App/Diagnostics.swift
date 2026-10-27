@@ -76,7 +76,7 @@ enum Diagnostics {
         let lensBase = Settings.TextSize.medium.pointSize * 1.9
         let entries = LensLayout.entries(in: demoLyrics)
         let starts = entries.map(\.word.start)
-        for time in [1.12, 1.45, 2.3, 3.5, 5.15, 9.6] {
+        for time in [1.12, 1.45, 2.3, 3.5, 5.15, 9.3, 10.4, 11.5] {
             let words = StackLayout.words(in: demoLyrics, at: time, icons: true)
             save(KineticWordsView(words: words, colors: colors, baseSize: stackBase, time: time, beat: 0, drift: true),
                  width: 1000, height: 440, name: String(format: "stack-%05.2f", time))
@@ -121,7 +121,10 @@ enum Diagnostics {
         let lyrics = match.lyrics
         let sung = lyrics.lines.filter { !$0.isGap }
         let span = sung.first.map { first in "\(format(first.start))–\(format(sung.last?.end ?? first.end))" } ?? "-"
-        return "\(lyrics.kind.rawValue), \(sung.count) lines, \(sung.reduce(0) { $0 + $1.words.count }) words, "
+        let words = sung.flatMap(\.words)
+        let withIcons = words.filter { WordIcons.icon(for: $0.text) != nil }.count
+        let iconShare = words.isEmpty ? 0 : 100 * withIcons / words.count
+        return "\(lyrics.kind.rawValue), \(sung.count) lines, \(words.count) words (\(iconShare)% with icons), "
             + "\(span), confidence \(String(format: "%.2f", match.confidence))"
     }
 
@@ -134,7 +137,7 @@ enum Diagnostics {
         let lines: [(TimeInterval, String)] = [
             (1.0, "Every word lights up the moment it is sung"),
             (5.0, "Colors borrowed from the cover on the screen"),
-            (9.0, "Floating over windows, never in your way"),
+            (9.0, "Angels floating by you, never in your way"),
             (13.0, "Even on the lock screen while the music plays"),
             (17.5, ""),
             (23.0, "OpenLyrics, word by word"),
