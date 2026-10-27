@@ -64,14 +64,22 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         for item in nowPlayingItems() { menu.addItem(item) }
         menu.addItem(.separator())
 
+        menu.addItem(choice("Style", Settings.Style.allCases, \.style, title: \.title))
+        menu.addItem(toggle("Show Icons", \.showIcons))
+        menu.addItem(reactItem())
+        menu.addItem(colorsMenu())
+        menu.addItem(choice("Text Size", Settings.TextSize.allCases, \.textSize, title: \.title))
+        if settings.style == .lines {
+            menu.addItem(toggle("Show Next Line", \.showNextLine))
+        }
+        menu.addItem(.separator())
+
         menu.addItem(toggle("Show on Desktop", \.showOnDesktop))
         let lockItem = toggle(coordinator.lockScreenAvailable ? "Show on Lock Screen" : "Show on Lock Screen (unavailable)", \.showOnLockScreen)
         lockItem.isEnabled = coordinator.lockScreenAvailable
         menu.addItem(lockItem)
         menu.addItem(choice("Position", Settings.Position.allCases, \.position, title: \.title))
-        menu.addItem(choice("Text Size", Settings.TextSize.allCases, \.textSize, title: \.title))
-        menu.addItem(choice("Colors", Settings.ColorMode.allCases, \.colorMode, title: \.title))
-        menu.addItem(toggle("Show Next Line", \.showNextLine))
+        menu.addItem(displayMenu())
         menu.addItem(toggle("Keep Display Awake on Lock Screen", \.keepAwakeWhenLocked))
         menu.addItem(.separator())
 
@@ -197,6 +205,73 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
                 } else {
                     self.settings[keyPath: keyPath].insert(value)
                 }
+            })
+        }
+        item.submenu = submenu
+        return item
+    }
+
+    private func reactItem() -> NSMenuItem {
+        ActionItem("React to the Music", checked: settings.reactToMusic) { [weak self] in
+            guard let self else { return }
+            if self.settings.reactToMusic {
+                self.settings.reactToMusic = false
+            } else {
+                self.coordinator.enableMusicReactions()
+            }
+        }
+    }
+
+    private func colorsMenu() -> NSMenuItem {
+        let item = NSMenuItem(title: "Colors", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        submenu.autoenablesItems = false
+        submenu.addItem(ActionItem("Auto Sync with Album", checked: settings.autoColors) { [weak self] in
+            self?.settings.autoColors.toggle()
+        })
+        submenu.addItem(.separator())
+        let current = settings.lyricColors(artwork: session.palette)
+        for role in Settings.ColorRole.allCases {
+            let color: PaletteColor = switch role {
+            case .lyric: current.lyric
+            case .highlight: current.highlight
+            case .secondary: current.secondary
+            }
+            let entry = ActionItem("\(role.title)…") { [weak self] in
+                guard let self else { return }
+                ColorPicker.shared.pick(role.title, starting: color) { [weak self] picked in
+                    self?.settings.setCustomColor(picked, for: role)
+                }
+            }
+            entry.image = Self.swatch(color)
+            submenu.addItem(entry)
+        }
+        submenu.addItem(.separator())
+        submenu.addItem(ActionItem("Reset Colors") { [weak self] in self?.settings.resetColors() })
+        item.submenu = submenu
+        return item
+    }
+
+    private static func swatch(_ color: PaletteColor) -> NSImage {
+        NSImage(size: NSSize(width: 14, height: 14), flipped: false) { rect in
+            color.nsColor.setFill()
+            NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 1), xRadius: 3.5, yRadius: 3.5).fill()
+            return true
+        }
+    }
+
+    private func displayMenu() -> NSMenuItem {
+        let item = NSMenuItem(title: "Display", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        submenu.autoenablesItems = false
+        submenu.addItem(ActionItem("Main Display", checked: settings.displayID == 0) { [weak self] in
+            self?.settings.displayID = 0
+        })
+        submenu.addItem(.separator())
+        for screen in NSScreen.screens {
+            guard let id = screen.displayID else { continue }
+            submenu.addItem(ActionItem(screen.localizedName, checked: settings.displayID == id) { [weak self] in
+                self?.settings.displayID = id
             })
         }
         item.submenu = submenu

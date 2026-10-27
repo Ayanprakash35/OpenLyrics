@@ -26,6 +26,7 @@ final class LyricsCoordinator {
     private let service = LyricsService()
     private let screenSession = ScreenSessionMonitor()
     private let screenAwake = ScreenAwake()
+    private let reactor = MusicReactor()
     private var lookupTask: Task<Void, Never>?
     private var durationWait: Task<Void, Never>?
     private var retryTask: Task<Void, Never>?
@@ -42,7 +43,8 @@ final class LyricsCoordinator {
         let scripts = NowPlayingScriptRunner()
         monitor = NowPlayingMonitor(scripts: scripts)
         tracker = PositionTracker(scripts: scripts)
-        overlay = OverlayController(session: session, settings: settings)
+        let reactor = self.reactor
+        overlay = OverlayController(session: session, settings: settings, audio: { reactor.snapshot() })
     }
 
     func start() {
@@ -64,6 +66,9 @@ final class LyricsCoordinator {
         settings.$providers.dropFirst().removeDuplicates().sink { [weak self] _ in
             // Published in willSet: read the new set once it's stored.
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.reloadLyrics(bypassCache: true) } }
+        }.store(in: &cancellables)
+        settings.$displayID.dropFirst().removeDuplicates().sink { [weak self] _ in
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.overlay.rebuildForScreens() } }
         }.store(in: &cancellables)
         settings.objectWillChange.sink { [weak self] _ in
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.refreshOverlay() } }
@@ -103,7 +108,36 @@ final class LyricsCoordinator {
     func stop() {
         monitor.stop()
         tracker.stop()
+        reactor.setWanted(false)
         screenAwake.setHeld(false)
+    }
+
+    /// Turns music reactions on, asking macOS for audio capture access first if needed. Without
+    /// access, explains where to allow it and leaves the setting off.
+    func enableMusicReactions() {
+        Task { [weak self] in
+            guard let self else { return }
+            let granted = self.reactor.hasAccess ? true : await self.reactor.requestAccess()
+            if granted {
+                self.settings.reactToMusic = true
+                self.refreshOverlay()
+                return
+            }
+            NSApp.activate(ignoringOtherApps: true)
+            let alert = NSAlert()
+            alert.messageText = "Allow OpenLyrics to hear your Mac's sound"
+            alert.informativeText = """
+                To move with the music, OpenLyrics listens to your Mac's sound output (never the \
+                microphone or the screen's contents). Turn OpenLyrics on under Screen & System Audio \
+                Recording in System Settings, then quit and reopen OpenLyrics.
+
+                While it listens, macOS counts OpenLyrics as recording the screen, so Apple Music may \
+                pause for a moment when you lock or unlock your Mac.
+                """
+            alert.addButton(withTitle: "Open System Settings")
+            alert.addButton(withTitle: "Cancel")
+            if alert.runModal() == .alertFirstButtonReturn { MusicReactor.openAccessSettings() }
+        }
     }
 
     /// Asks the players again (after granting Automation access in System Settings).
@@ -241,5 +275,8 @@ final class LyricsCoordinator {
         ))
         let onLockScreen = overlay.visibility.lockScreen && screenSession.reasons.contains(.screenLocked)
         screenAwake.setHeld(onLockScreen && settings.keepAwakeWhenLocked)
+        // Listening runs steadily while a song is loaded, not just while lyrics show: every start
+        // and stop of capture makes Apple Music re-check its copy protection, which can stutter it.
+        reactor.setWanted(settings.reactToMusic && session.track != nil)
     }
 }

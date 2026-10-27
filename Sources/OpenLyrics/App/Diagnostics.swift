@@ -11,6 +11,9 @@ import SwiftUI
 ///         Runs the app with built-in demo lyrics instead of following a player.
 enum Diagnostics {
     static var isDemo: Bool { CommandLine.arguments.contains("--demo") }
+    /// `--offscreen`: overlay windows are placed far off every screen, so rendering can be measured
+    /// live without anything appearing.
+    static var isOffscreen: Bool { CommandLine.arguments.contains("--offscreen") }
 
     /// Runs `--lookup` and exits, if that's what was asked for.
     static func runLookupIfRequested() {
@@ -54,29 +57,61 @@ enum Diagnostics {
         guard let flag = arguments.firstIndex(of: "--snapshot"), arguments.count > flag + 1 else { return }
         let directory = URL(fileURLWithPath: arguments[flag + 1], isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let moments: [(String, TimeInterval)] = [("mid-line", 3.2), ("next-line", 6.4), ("gap", 20.0)]
-        for surface in [OverlaySurface.desktop, .lockScreen] {
-            for (name, time) in moments {
-                let style = LyricsStyle(
-                    fontSize: Settings.TextSize.medium.pointSize * (surface == .lockScreen ? 1.3 : 1),
-                    highlight: demoPalette.primary.color, glow: demoPalette.secondary.color,
-                    showNextLine: true, backdrop: surface == .desktop, surface: surface
-                )
-                let view = ZStack {
-                    LinearGradient(colors: [Color(red: 0.12, green: 0.14, blue: 0.24), Color(red: 0.35, green: 0.2, blue: 0.3)],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing)
-                    LyricsStage(lyrics: demoLyrics, time: time, style: style,
-                                caption: surface == .lockScreen ? "\(demoTrack.title) — \(demoTrack.artist)" : nil)
-                }
-                .frame(width: 1200, height: surface == .lockScreen ? 420 : 300)
-                let renderer = ImageRenderer(content: view)
-                renderer.scale = 2
-                guard let image = renderer.cgImage else { continue }
-                let rep = NSBitmapImageRep(cgImage: image)
-                let file = directory.appending(path: "\(surface == .desktop ? "desktop" : "lockscreen")-\(name).png")
-                try? rep.representation(using: .png, properties: [:])?.write(to: file)
-                print(file.path)
+        func save<V: View>(_ view: V, width: CGFloat, height: CGFloat, name: String) {
+            let framed = ZStack {
+                LinearGradient(colors: [Color(red: 0.07, green: 0.06, blue: 0.1), Color(red: 0.16, green: 0.1, blue: 0.16)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                view
             }
+            .frame(width: width, height: height)
+            let renderer = ImageRenderer(content: framed)
+            renderer.scale = 2
+            guard let image = renderer.cgImage else { return }
+            let file = directory.appending(path: "\(name).png")
+            try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: file)
+            print(file.path)
+        }
+        let colors = LyricColors.fromArtwork(demoPalette)
+        let stackBase = Settings.TextSize.medium.pointSize * 2.2
+        let lensBase = Settings.TextSize.medium.pointSize * 1.9
+        let entries = LensLayout.entries(in: demoLyrics)
+        let starts = entries.map(\.word.start)
+        for time in [1.12, 1.45, 2.3, 3.5, 5.15, 9.6] {
+            let words = StackLayout.words(in: demoLyrics, at: time, icons: true)
+            save(KineticWordsView(words: words, colors: colors, baseSize: stackBase, time: time, beat: 0, drift: true),
+                 width: 1000, height: 440, name: String(format: "stack-%05.2f", time))
+        }
+        for time in [2.3, 6.2, 13.6] {
+            let words = LensLayout.words(in: entries, starts: starts, at: time, icons: true)
+            save(KineticWordsView(words: words, colors: colors, baseSize: lensBase, time: time, beat: 0, drift: false),
+                 width: 1000, height: 520, name: String(format: "lens-%05.2f", time))
+        }
+        exit(0)
+    }
+
+    /// Runs `--benchmark` and exits, if asked: renders two seconds of the Stack and Lens styles
+    /// offscreen at 60 fps and prints the time per frame, to compare rendering changes.
+    @MainActor
+    static func runBenchmarkIfRequested() {
+        guard CommandLine.arguments.contains("--benchmark") else { return }
+        let colors = LyricColors.fromArtwork(demoPalette)
+        let entries = LensLayout.entries(in: demoLyrics)
+        let starts = entries.map(\.word.start)
+        for style in ["stack", "lens"] {
+            let clock = ContinuousClock()
+            let began = clock.now
+            let frames = 120
+            for frame in 0..<frames {
+                let time = 1.0 + Double(frame) / 60
+                let words = style == "stack"
+                    ? StackLayout.words(in: demoLyrics, at: time, icons: true)
+                    : LensLayout.words(in: entries, starts: starts, at: time, icons: true)
+                let view = KineticWordsView(words: words, colors: colors, baseSize: 75, time: time, beat: 0, drift: style == "stack")
+                    .frame(width: 1200, height: 400)
+                _ = ImageRenderer(content: view).cgImage
+            }
+            let perFrame = (clock.now - began) / frames
+            print("\(style): \(perFrame.formatted(.units(allowed: [.milliseconds], fractionalPart: .show(length: 2)))) per frame")
         }
         exit(0)
     }

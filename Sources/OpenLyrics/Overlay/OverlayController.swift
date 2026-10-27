@@ -25,15 +25,21 @@ final class OverlayWindow {
     private let hosting: NSHostingView<LyricsOverlayView>
     private let session: LyricsSession
     private let settings: Settings
+    private let audio: () -> AudioAnalysisState
+    private var insets: EdgeInsets
     private(set) var isVisible = false
 
-    init(screen: NSScreen, surface: OverlaySurface, session: LyricsSession, settings: Settings, lockSpace: LockScreenSpace?) {
+    init(screen: NSScreen, surface: OverlaySurface, session: LyricsSession, settings: Settings,
+         audio: @escaping () -> AudioAnalysisState, lockSpace: LockScreenSpace?) {
         self.surface = surface
         self.session = session
         self.settings = settings
-        screenFrame = screen.frame
+        self.audio = audio
+        screenFrame = Self.frame(for: screen)
+        insets = Self.insets(of: screen)
         hosting = NSHostingView(rootView: LyricsOverlayView(
-            session: session, settings: settings, surface: surface, screenInsets: Self.insets(of: screen)
+            session: session, settings: settings, surface: surface, screenInsets: Self.insets(of: screen), audio: audio,
+            isVisible: false
         ))
         hosting.isHidden = true
         // With `screen:` given, AppKit adds the screen's origin to contentRect itself.
@@ -56,7 +62,7 @@ final class OverlayWindow {
         window.isExcludedFromWindowsMenu = true
         window.alphaValue = 0
         window.contentView = hosting
-        window.setFrame(screen.frame, display: false)
+        window.setFrame(screenFrame, display: false)
         if surface == .lockScreen {
             lockSpace?.adopt(window)
         }
@@ -74,6 +80,7 @@ final class OverlayWindow {
                 window.setFrame(screenFrame, display: false)
             }
             hosting.isHidden = false
+            updateRoot()
         }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = animated ? OverlayConfig.fadeDuration : 0
@@ -82,23 +89,36 @@ final class OverlayWindow {
             MainActor.assumeIsolated {
                 guard let self, !self.isVisible else { return }
                 self.hosting.isHidden = true
+                self.updateRoot()
             }
         }
     }
 
     func updateScreen(_ screen: NSScreen) {
-        screenFrame = screen.frame
-        window.setFrame(screen.frame, display: true)
-        hosting.rootView = LyricsOverlayView(session: session, settings: settings, surface: surface, screenInsets: Self.insets(of: screen))
+        screenFrame = Self.frame(for: screen)
+        window.setFrame(screenFrame, display: true)
+        insets = Self.insets(of: screen)
+        updateRoot()
         // Ordering front again is harmless on the desktop and re-asserts the window after a
         // display change; the lock-screen window keeps its space.
         window.orderFrontRegardless()
+    }
+
+    /// Rebuilds the SwiftUI root with the current insets and visibility.
+    private func updateRoot() {
+        hosting.rootView = LyricsOverlayView(
+            session: session, settings: settings, surface: surface, screenInsets: insets, audio: audio, isVisible: isVisible
+        )
     }
 
     func close() {
         window.orderOut(nil)
         window.contentView = nil
         window.close()
+    }
+
+    private static func frame(for screen: NSScreen) -> NSRect {
+        Diagnostics.isOffscreen ? screen.frame.offsetBy(dx: -100_000, dy: -100_000) : screen.frame
     }
 
     /// The menu bar's and Dock's share of the screen.
@@ -135,6 +155,7 @@ final class OverlayController {
     private let logger = Logger(subsystem: "com.openlyrics.app", category: "Overlay")
     private let session: LyricsSession
     private let settings: Settings
+    private let audio: () -> AudioAnalysisState
     let lockSpace: LockScreenSpace
     private var desktop: OverlayWindow?
     private var lockScreen: OverlayWindow?
@@ -146,9 +167,10 @@ final class OverlayController {
     /// Main actor, when the preview starts or ends, so the owner can re-evaluate visibility.
     var onPreviewChange: (() -> Void)?
 
-    init(session: LyricsSession, settings: Settings) {
+    init(session: LyricsSession, settings: Settings, audio: @escaping () -> AudioAnalysisState) {
         self.session = session
         self.settings = settings
+        self.audio = audio
         lockSpace = LockScreenSpace(level: settings.lockScreenSpaceLevel ?? LockScreenSpaceConfig.defaultLevel)
         rebuildForScreens()
     }
@@ -191,9 +213,11 @@ final class OverlayController {
         }
     }
 
-    /// Makes or moves the windows when displays are added, removed or rearranged.
+    /// Makes or moves the windows when displays are added, removed or rearranged, or the chosen
+    /// display changes. A chosen display that isn't connected falls back to the main one.
     func rebuildForScreens() {
-        guard let screen = NSScreen.screens.first else {
+        let chosen = settings.displayID == 0 ? nil : NSScreen.screens.first { $0.displayID == settings.displayID }
+        guard let screen = chosen ?? NSScreen.screens.first else {
             desktop?.close()
             lockScreen?.close()
             desktop = nil
@@ -210,8 +234,8 @@ final class OverlayController {
         desktop?.close()
         lockScreen?.close()
         screenID = id
-        desktop = OverlayWindow(screen: screen, surface: .desktop, session: session, settings: settings, lockSpace: nil)
-        lockScreen = OverlayWindow(screen: screen, surface: .lockScreen, session: session, settings: settings, lockSpace: lockSpace)
+        desktop = OverlayWindow(screen: screen, surface: .desktop, session: session, settings: settings, audio: audio, lockSpace: nil)
+        lockScreen = OverlayWindow(screen: screen, surface: .lockScreen, session: session, settings: settings, audio: audio, lockSpace: lockSpace)
         desktop?.setVisible(visibility.desktop, animated: false)
         lockScreen?.setVisible(visibility.lockScreen, animated: false)
     }

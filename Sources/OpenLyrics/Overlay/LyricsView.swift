@@ -30,26 +30,115 @@ struct LyricsOverlayView: View {
     /// The screen's menu bar and Dock, so the desktop overlay sits clear of them.
     var screenInsets = EdgeInsets()
 
+    /// The latest music analysis, when music reactions run; read every frame.
+    var audio: (() -> AudioAnalysisState)?
+    /// False while the window is hidden: nothing is drawn and the frame timeline stops, so a
+    /// hidden overlay costs nothing.
+    var isVisible = true
+
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !session.isPlaying || !session.hasSyncedLyrics)) { _ in
-            LyricsStage(
-                lyrics: session.lyrics,
-                time: session.position(at: ProcessInfo.processInfo.systemUptime, offset: settings.syncOffset),
-                style: style,
-                caption: surface == .lockScreen ? caption : nil
-            )
+        if isVisible {
+            frames
+        }
+    }
+
+    @State private var pace = FramePace()
+
+    private var frames: some View {
+        Group {
+            if session.isPlaying, session.hasSyncedLyrics {
+                // 60 fps around word changes, 30 otherwise (see FramePace).
+                TimelineView(PacedSchedule(pace: pace)) { _ in
+                    frame(at: session.position(at: ProcessInfo.processInfo.systemUptime, offset: settings.syncOffset))
+                }
+            } else {
+                // Paused: one still frame, no timeline.
+                frame(at: session.position(at: ProcessInfo.processInfo.systemUptime, offset: settings.syncOffset))
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
         .padding(padding)
     }
 
+    @ViewBuilder
+    private func frame(at time: TimeInterval?) -> some View {
+        let _ = updatePace(at: time)
+        switch settings.style {
+        case .lines:
+            LyricsStage(lyrics: session.lyrics, time: time, style: style, caption: surface == .lockScreen ? caption : nil)
+        case .stack, .lens:
+            kinetic(time: time)
+        }
+    }
+
+    /// Tells the schedule when the next burst of motion is due.
+    private func updatePace(at time: TimeInterval?) {
+        guard let time else { return }
+        let starts: [TimeInterval]
+        switch settings.style {
+        case .lens:
+            starts = session.lensStarts
+        case .stack:
+            guard let lyrics = session.lyrics, let index = lyrics.lineIndex(at: time) else { return }
+            // The line's words, plus the next line's start (the stack clears and pops).
+            starts = lyrics.lines[index].words.map(\.start) + (index + 1 < lyrics.lines.count ? [lyrics.lines[index + 1].start] : [])
+        case .lines:
+            starts = session.lyrics?.lines.map(\.start) ?? []
+        }
+        let now = Date()
+        guard let window = FramePace.window(starts: starts, at: time) else {
+            pace.setFastWindow(from: .distantFuture, until: .distantPast)
+            return
+        }
+        pace.setFastWindow(from: now.addingTimeInterval(window.from - time), until: now.addingTimeInterval(window.until - time))
+    }
+
+    /// The Stack and Lens styles, under the track name on the lock screen.
+    @ViewBuilder
+    private func kinetic(time: TimeInterval?) -> some View {
+        let base = kineticSize
+        let words: [PlacedWord] = {
+            guard let time, let lyrics = session.lyrics else { return [] }
+            switch settings.style {
+            case .lens: return LensLayout.words(in: session.lensEntries, starts: session.lensStarts, at: time, icons: settings.showIcons)
+            default: return StackLayout.words(in: lyrics, at: time, icons: settings.showIcons)
+            }
+        }()
+        VStack(spacing: base * 0.3) {
+            if surface == .lockScreen, let caption {
+                Text(caption)
+                    .font(.system(size: base * 0.3, weight: .semibold))
+                    .foregroundStyle(colors.lyric.color.opacity(0.85))
+                    .lineLimit(1)
+                    .shadow(color: .black.opacity(0.4), radius: 4, y: 1)
+            }
+            KineticWordsView(
+                words: words,
+                colors: colors,
+                baseSize: base,
+                time: time ?? 0,
+                beat: Double(audio?().beatPulse ?? 0),
+                drift: settings.style == .stack
+            )
+            .frame(maxWidth: .infinity)
+            .frame(height: base * (settings.style == .lens ? 5.4 : 3.8))
+        }
+    }
+
+    private var colors: LyricColors { settings.lyricColors(artwork: session.palette) }
+
+    /// The Stack and Lens styles' base word size: bigger than a line of text, since one word
+    /// carries the moment.
+    private var kineticSize: CGFloat {
+        settings.textSize.pointSize * (settings.style == .lens ? 1.9 : 2.2) * (surface == .lockScreen ? 1.2 : 1)
+    }
+
     private var style: LyricsStyle {
-        let palette = settings.colorMode == .artwork ? session.palette : .fallback
         let scale: CGFloat = surface == .lockScreen ? 1.3 : 1
         return LyricsStyle(
             fontSize: settings.textSize.pointSize * scale,
-            highlight: palette.primary.color,
-            glow: palette.secondary.color,
+            highlight: colors.highlight.color,
+            glow: colors.lyric.color,
             showNextLine: settings.showNextLine,
             backdrop: false,
             surface: surface

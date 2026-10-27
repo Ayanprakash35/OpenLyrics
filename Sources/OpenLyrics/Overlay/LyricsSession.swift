@@ -21,6 +21,9 @@ final class LyricsSession: ObservableObject {
     @Published private(set) var lyrics: Lyrics?
     @Published private(set) var lookupState: LookupState = .idle
     @Published var palette: ArtworkPalette = .fallback
+    /// The lyrics' words in order, for the Lens style, built once per lyrics.
+    private(set) var lensEntries: [LensLayout.Entry] = []
+    private(set) var lensStarts: [TimeInterval] = []
 
     /// Synced lyrics, a running clock and playback: there is something to follow along with.
     var hasSyncedLyrics: Bool { lyrics?.isSynced == true }
@@ -29,22 +32,28 @@ final class LyricsSession: ObservableObject {
     func begin(_ track: NowPlayingMonitor.Track?) {
         self.track = track
         clock = nil
-        lyrics = nil
+        setLyrics(nil)
         lookupState = track == nil ? .idle : .searching
     }
 
     func setLookup(_ lookup: LyricsLookup) {
         switch lookup {
         case .found(let found):
-            lyrics = found
+            setLyrics(found)
             lookupState = .found(found.kind, source: found.source)
         case .notFound:
-            lyrics = nil
+            setLyrics(nil)
             lookupState = .notFound
         case .unavailable:
-            lyrics = nil
+            setLyrics(nil)
             lookupState = .unavailable
         }
+    }
+
+    private func setLyrics(_ new: Lyrics?) {
+        lyrics = new
+        lensEntries = new.map(LensLayout.entries(in:)) ?? []
+        lensStarts = lensEntries.map(\.word.start)
     }
 
     func setSearching() {

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.0 — 2026-10-27
+
+- **Kinetic styles, after Verci.** *Stack*: a word wall that drifts in 3D — the word being sung in
+  a highlight box at the bottom, filling as it's sung, springing up into a big middle slot when the
+  next word starts while older words dim and drift away. *Lens*: the song's words on a curved
+  column, the sung word rolling to the middle, closest to the glass. The previous look stays as
+  *Lines*.
+- **Word icons**: over 260 lyric words (and their plural, -ing and -ed forms) get an animated SF
+  Symbol beside them.
+- **Three colors from the album** (lyric text, highlight, secondary text), or custom ones.
+- **React to the Music** (opt-in): words and icons swell on the beat, using Open Glow's audio
+  analysis.
+- **Display** picker for which screen the lyrics show on.
+- Hidden overlays no longer draw: an overlay that was turned off or waiting for the lock screen
+  kept rendering 60 frames a second in the background (about 40% CPU).
+- Visible overlays draw at 60 fps only around word changes and 30 fps otherwise, and lay words out
+  once instead of every frame: about 12% CPU for the Stack style instead of 35–45%.
+
 ## 0.1.1 — 2026-10-26
 
 - Lyrics show about as soon as the fastest source answers (around 1.5 s instead of up to 9 s): a

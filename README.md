@@ -5,26 +5,38 @@ over your desktop, and on your Mac's **lock screen**.
 
 ### [⬇ Download OpenLyrics for Mac](https://github.com/Ayanprakash35/OpenLyrics/releases/latest/download/OpenLyrics.dmg)
 
-![The desktop overlay: a line of lyrics filling word by word in the album's color](docs/images/desktop.png)
+![Stack style: the sung word in its highlight box, the word before it big above, a light-bulb icon beside "lights"](docs/images/stack.png)
 
-![The lock-screen overlay: the track name above, the current line large, the next line below](docs/images/lockscreen.png)
+![Lens style: the song's words on a curved column, the sung word largest and boxed in the middle](docs/images/lens.png)
 
 OpenLyrics is an open recreation of the idea behind Verci: it watches what's playing, finds
-time-synced lyrics, and paints each word as it's sung, tinted with the album artwork's colors. It
-lives in the menu bar, never takes clicks away from what's underneath, and needs no account.
+time-synced lyrics, and sets them in motion word by word — kinetic typography in the album
+artwork's colors, with icons for the words that have one. It lives in the menu bar, never takes
+clicks away from what's underneath, and needs no account.
 
 The now-playing detection and album-color extraction come from
 [Open Glow](https://github.com/Ayanprakash35/Open-glow).
 
 ## Features
 
-- **Word-by-word fill.** Each word lights up as it's sung, with a soft edge, a slight lift and a
-  glow. Lyrics with per-word timing are followed exactly; line-timed lyrics are spread over the
-  line at a natural singing pace.
+- **Three styles.**
+  - **Stack** — words pile into a wall that drifts in 3D. The word being sung sits at the bottom in
+    a highlight box that fills as it's sung; when the next word starts, the wall springs up a row,
+    the sung word grows into the big middle slot, and older words shrink, dim and drift away.
+  - **Lens** — the song's words on a curved column under a lens; the sung word rolls to the middle,
+    closest to the glass.
+  - **Lines** — one line at a time, filling word by word, with the next line underneath.
+- **Word icons.** Over 260 everyday lyric words (love, rain, fire, dance, night, money…), and their
+  plural, -ing and -ed forms, get an
+  SF Symbol that pops in beside them and keeps moving — bouncing, pulsing, wiggling, spinning.
+- **Colors from the album.** Lyric text, highlight and secondary text come from the cover art and
+  change with the song — or pick all three yourself.
+- **Moves with the music** (optional). Listens to your Mac's sound output and swells the words and
+  icons on the beat.
 - **On the lock screen.** Lyrics keep going after you lock your Mac, with the track name above
   them, and the display stays awake while they show (optional).
-- **Album colors.** The highlight takes the most vivid color from the cover art; or plain white.
-- **Next line preview** underneath, and three dots counting down through instrumental breaks.
+- **Light on battery.** 60 fps only around word changes, 30 otherwise, nothing while paused or
+  hidden.
 - **Two lyrics sources, asked at once:** [LRCLIB](https://lrclib.net) (open, line-synced) and
   NetEase Cloud Music (large catalog, often word-synced). The best match wins — by title, artist
   and track length — and every answer is cached, so replays work offline.
@@ -86,11 +98,15 @@ Everything is in the menu-bar menu (the speech-bubble icon):
 | Item | What it does |
 | --- | --- |
 | Track, artist and status | What's playing and where its lyrics came from |
+| Style | Stack, Lens or Lines |
+| Show Icons | Icons beside the words that have one |
+| React to the Music | Words and icons move with the beat (asks for audio access) |
+| Colors | Auto Sync with Album, or your own Lyric Text, Highlight and Secondary Text colors |
+| Text Size | Small, Medium, Large, Huge |
+| Show Next Line | The upcoming line, smaller, underneath (Lines style) |
 | Show on Desktop / Lock Screen | Where lyrics appear |
 | Position | Top, center or bottom of the screen (desktop) |
-| Text Size | Small, Medium, Large, Huge |
-| Colors | Album artwork, or white |
-| Show Next Line | The upcoming line, smaller, underneath |
+| Display | Which screen lyrics show on |
 | Keep Display Awake on Lock Screen | Stops the locked screen from going dark mid-song |
 | Timing | Show lyrics sooner (`⌘]`) or later (`⌘[`) in quarter seconds |
 | Reload Lyrics (`⌘R`) | Look the song up again, skipping the cache |
@@ -108,6 +124,12 @@ Everything is in the menu-bar menu (the speech-bubble icon):
   versions often don't.
 - *Couldn't reach any lyrics service* — OpenLyrics retries every 30 seconds. Some networks block
   `lrclib.net`; NetEase usually still works.
+
+**Apple Music pauses for a moment when you lock or unlock.** That happens whenever an app is
+recording the screen or the Mac's sound (the purple indicator in the menu bar): Apple Music
+re-checks its copy protection each time that recording stops at lock and starts again at unlock.
+OpenLyrics only records anything with **React to the Music** on; turn that off, or quit the other
+app that's recording, and the stutter goes away.
 
 **Lyrics run early or late.** Use **Timing › Show Lyrics Sooner / Later**. The offset stays until
 you reset it.
@@ -147,9 +169,12 @@ log stream --level info --predicate 'subsystem == "com.openlyrics.app"'
    length — recordings more than 12 seconds apart are rejected, since their timing wouldn't line
    up. NetEase's word-timed format is used when available; otherwise LRC line timing, with each
    word's timing estimated from its length.
-3. **Drawing.** A borderless, transparent, click-through window per surface hosts a SwiftUI view
-   that picks the current line every frame. Each word is a dim copy with a highlight copy on top,
-   masked by a gradient that moves across the word as it's sung.
+3. **Drawing.** A borderless, transparent, click-through window per surface hosts a SwiftUI view.
+   Each style is a pure function from the song's timing and the playback position to word
+   positions, sizes, tilts and colors, so every frame is computed from scratch with no animation
+   state: the stack's rise is a spring eased from each word's start time, the lens a drum the
+   column rolls along. Words are laid out once at their largest size and scaled on the GPU, and
+   frames come at 60 fps only around word changes.
 4. **The lock screen.** macOS has no public way to draw over the lock screen. Its window server,
    SkyLight, stacks *spaces* by an absolute level, and the lock screen sits at level 300.
    OpenLyrics creates its own space at level 400 — where macOS shows notifications over the lock
@@ -159,7 +184,8 @@ log stream --level info --predicate 'subsystem == "com.openlyrics.app"'
 ## Privacy
 
 OpenLyrics sends the track's title, artist, album and length to the lyrics sources you have turned
-on, and nothing else. No accounts, analytics or tracking. Lyrics are cached in
+on, and nothing else. With React to the Music on, it analyzes your Mac's sound output on the Mac
+itself; nothing is recorded or sent anywhere. No accounts, analytics or tracking. Lyrics are cached in
 `~/Library/Caches/com.openlyrics.app` (menu › Clear Lyrics Cache empties it).
 
 ## License

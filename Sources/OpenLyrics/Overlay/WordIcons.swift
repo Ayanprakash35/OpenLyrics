@@ -39,15 +39,16 @@ enum WordIcons {
 
     /// The word lowercased and trimmed, then with common endings removed, most specific first.
     static func candidates(for word: String) -> [String] {
-        let base = word.lowercased()
-            .trimmingCharacters(in: CharacterSet.letters.inverted)
-            .replacingOccurrences(of: "’", with: "'")
+        let lowered = word.lowercased().replacingOccurrences(of: "’", with: "'")
+        let base = lowered.trimmingCharacters(in: CharacterSet.letters.inverted)
         guard base.count >= minimumLength else { return [] }
         var forms = [base]
         func add(_ form: String) {
             if form.count >= minimumLength, !forms.contains(form) { forms.append(form) }
         }
-        if base.hasSuffix("in'") { add(String(base.dropLast()) + "g") }
+        // "dancin'" is "dancing": checked before the apostrophe is trimmed away.
+        let withApostrophe = lowered.trimmingCharacters(in: CharacterSet.letters.union(CharacterSet(charactersIn: "'")).inverted)
+        if withApostrophe.hasSuffix("in'") { add(base + "g") }
         if base.hasSuffix("ies") { add(String(base.dropLast(3)) + "y") }
         if base.hasSuffix("es") { add(String(base.dropLast(2))) }
         if base.hasSuffix("s"), !base.hasSuffix("ss") { add(String(base.dropLast())) }

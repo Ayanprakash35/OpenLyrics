@@ -42,13 +42,32 @@ final class Settings: ObservableObject {
         }
     }
 
-    enum ColorMode: String, CaseIterable, Sendable {
-        case artwork, white
+    enum Style: String, CaseIterable, Sendable {
+        /// Words pile into a wall, one per row; the sung word in its highlight box.
+        case stack
+        /// The song's words on a drum under a lens; the sung word closest to the glass.
+        case lens
+        /// One line at a time, filling word by word.
+        case lines
 
         var title: String {
             switch self {
-            case .artwork: "Album Artwork"
-            case .white: "White"
+            case .stack: "Stack"
+            case .lens: "Lens"
+            case .lines: "Lines"
+            }
+        }
+    }
+
+    /// Which lyric color a custom color replaces.
+    enum ColorRole: String, CaseIterable, Sendable {
+        case lyric, highlight, secondary
+
+        var title: String {
+            switch self {
+            case .lyric: "Lyric Text"
+            case .highlight: "Highlight"
+            case .secondary: "Secondary Text"
             }
         }
     }
@@ -63,7 +82,21 @@ final class Settings: ObservableObject {
     @Published var showOnLockScreen: Bool { didSet { defaults.set(showOnLockScreen, forKey: Key.showOnLockScreen) } }
     @Published var position: Position { didSet { defaults.set(position.rawValue, forKey: Key.position) } }
     @Published var textSize: TextSize { didSet { defaults.set(textSize.rawValue, forKey: Key.textSize) } }
-    @Published var colorMode: ColorMode { didSet { defaults.set(colorMode.rawValue, forKey: Key.colorMode) } }
+    @Published var style: Style { didSet { defaults.set(style.rawValue, forKey: Key.style) } }
+    @Published var showIcons: Bool { didSet { defaults.set(showIcons, forKey: Key.showIcons) } }
+    /// Colors from the album artwork; off uses `customColors`.
+    @Published var autoColors: Bool { didSet { defaults.set(autoColors, forKey: Key.autoColors) } }
+    @Published var customColors: LyricColors {
+        didSet {
+            defaults.set(customColors.lyric.hex, forKey: Key.lyricColor)
+            defaults.set(customColors.highlight.hex, forKey: Key.highlightColor)
+            defaults.set(customColors.secondary.hex, forKey: Key.secondaryColor)
+        }
+    }
+    /// The display lyrics show on; 0 follows the main display (the one with the menu bar).
+    @Published var displayID: UInt32 { didSet { defaults.set(Int(displayID), forKey: Key.displayID) } }
+    /// Move with the beat of the Mac's sound output (needs Screen & System Audio Recording access).
+    @Published var reactToMusic: Bool { didSet { defaults.set(reactToMusic, forKey: Key.reactToMusic) } }
     @Published var showNextLine: Bool { didSet { defaults.set(showNextLine, forKey: Key.showNextLine) } }
     @Published var keepAwakeWhenLocked: Bool { didSet { defaults.set(keepAwakeWhenLocked, forKey: Key.keepAwakeWhenLocked) } }
     /// Seconds added to the playback position before choosing what to show: positive shows lyrics
@@ -83,12 +116,24 @@ final class Settings: ObservableObject {
             Key.showOnLockScreen: true,
             Key.showNextLine: true,
             Key.keepAwakeWhenLocked: true,
+            Key.showIcons: true,
+            Key.autoColors: true,
         ])
         showOnDesktop = defaults.bool(forKey: Key.showOnDesktop)
         showOnLockScreen = defaults.bool(forKey: Key.showOnLockScreen)
         position = defaults.string(forKey: Key.position).flatMap(Position.init) ?? .bottom
         textSize = defaults.string(forKey: Key.textSize).flatMap(TextSize.init) ?? .medium
-        colorMode = defaults.string(forKey: Key.colorMode).flatMap(ColorMode.init) ?? .artwork
+        style = defaults.string(forKey: Key.style).flatMap(Style.init) ?? .stack
+        showIcons = defaults.bool(forKey: Key.showIcons)
+        autoColors = defaults.bool(forKey: Key.autoColors)
+        let standard = LyricColors.standard
+        customColors = LyricColors(
+            lyric: defaults.string(forKey: Key.lyricColor).flatMap(PaletteColor.init(hex:)) ?? standard.lyric,
+            highlight: defaults.string(forKey: Key.highlightColor).flatMap(PaletteColor.init(hex:)) ?? standard.highlight,
+            secondary: defaults.string(forKey: Key.secondaryColor).flatMap(PaletteColor.init(hex:)) ?? standard.secondary
+        )
+        displayID = UInt32(clamping: defaults.integer(forKey: Key.displayID))
+        reactToMusic = defaults.bool(forKey: Key.reactToMusic)
         showNextLine = defaults.bool(forKey: Key.showNextLine)
         keepAwakeWhenLocked = defaults.bool(forKey: Key.keepAwakeWhenLocked)
         syncOffset = min(max(defaults.double(forKey: Key.syncOffset), Self.offsetRange.lowerBound), Self.offsetRange.upperBound)
@@ -96,6 +141,25 @@ final class Settings: ObservableObject {
         players = defaults.object(forKey: Key.players) == nil ? Set(NowPlayingMonitor.Player.allCases) : Set(storedPlayers)
         let storedProviders = (defaults.stringArray(forKey: Key.providers) ?? []).compactMap(LyricsProviderID.init)
         providers = defaults.object(forKey: Key.providers) == nil ? Set(LyricsProviderID.allCases) : Set(storedProviders)
+    }
+
+    /// The colors to draw with: from the album when `autoColors`, else the custom ones.
+    func lyricColors(artwork: ArtworkPalette) -> LyricColors {
+        autoColors ? LyricColors.fromArtwork(artwork) : customColors
+    }
+
+    func setCustomColor(_ color: PaletteColor, for role: ColorRole) {
+        switch role {
+        case .lyric: customColors.lyric = color
+        case .highlight: customColors.highlight = color
+        case .secondary: customColors.secondary = color
+        }
+        autoColors = false
+    }
+
+    func resetColors() {
+        customColors = .standard
+        autoColors = true
     }
 
     func nudgeOffset(by delta: TimeInterval) {
@@ -114,7 +178,14 @@ final class Settings: ObservableObject {
         static let showOnLockScreen = "showOnLockScreen"
         static let position = "position"
         static let textSize = "textSize"
-        static let colorMode = "colorMode"
+        static let style = "style"
+        static let showIcons = "showIcons"
+        static let autoColors = "autoColors"
+        static let lyricColor = "lyricColor"
+        static let highlightColor = "highlightColor"
+        static let secondaryColor = "secondaryColor"
+        static let displayID = "displayID"
+        static let reactToMusic = "reactToMusic"
         static let showNextLine = "showNextLine"
         static let keepAwakeWhenLocked = "keepAwakeWhenLocked"
         static let syncOffset = "syncOffset"
