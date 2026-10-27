@@ -84,6 +84,10 @@ final class Settings: ObservableObject {
     @Published var textSize: TextSize { didSet { defaults.set(textSize.rawValue, forKey: Key.textSize) } }
     @Published var style: Style { didSet { defaults.set(style.rawValue, forKey: Key.style) } }
     @Published var showIcons: Bool { didSet { defaults.set(showIcons, forKey: Key.showIcons) } }
+    /// Words and icons bump gently with each sung word.
+    @Published var beatBounce: Bool { didSet { defaults.set(beatBounce, forKey: Key.beatBounce) } }
+    /// The track's title and artist above the lyrics on the lock screen.
+    @Published var showTrackName: Bool { didSet { defaults.set(showTrackName, forKey: Key.showTrackName) } }
     /// Colors from the album artwork; off uses `customColors`.
     @Published var autoColors: Bool { didSet { defaults.set(autoColors, forKey: Key.autoColors) } }
     @Published var customColors: LyricColors {
@@ -117,6 +121,7 @@ final class Settings: ObservableObject {
             Key.showNextLine: true,
             Key.keepAwakeWhenLocked: true,
             Key.showIcons: true,
+            Key.beatBounce: true,
             Key.autoColors: true,
         ])
         showOnDesktop = defaults.bool(forKey: Key.showOnDesktop)
@@ -125,6 +130,8 @@ final class Settings: ObservableObject {
         textSize = defaults.string(forKey: Key.textSize).flatMap(TextSize.init) ?? .medium
         style = defaults.string(forKey: Key.style).flatMap(Style.init) ?? .stack
         showIcons = defaults.bool(forKey: Key.showIcons)
+        beatBounce = defaults.bool(forKey: Key.beatBounce)
+        showTrackName = defaults.bool(forKey: Key.showTrackName)
         autoColors = defaults.bool(forKey: Key.autoColors)
         let standard = LyricColors.standard
         customColors = LyricColors(
@@ -144,16 +151,17 @@ final class Settings: ObservableObject {
     }
 
     /// The colors to draw with: from the album when `autoColors`, else the custom ones.
-    func lyricColors(artwork: ArtworkPalette) -> LyricColors {
-        autoColors ? LyricColors.fromArtwork(artwork) : customColors
+    func lyricColors(accents: [PaletteColor]) -> LyricColors {
+        autoColors ? LyricColors.fromArtwork(accents: accents) : customColors
     }
 
-    func setCustomColor(_ color: PaletteColor, for role: ColorRole) {
-        switch role {
-        case .lyric: customColors.lyric = color
-        case .highlight: customColors.highlight = color
-        case .secondary: customColors.secondary = color
-        }
+    /// Picking a color turns Auto Sync off and keeps the other two colors as they look now.
+    func setCustomColor(_ color: PaletteColor, for role: ColorRole, current: LyricColors) {
+        customColors = LyricColors(
+            lyric: role == .lyric ? color : current.lyric,
+            highlight: role == .highlight ? color : current.highlight,
+            secondary: role == .secondary ? color : current.secondary
+        )
         autoColors = false
     }
 
@@ -180,6 +188,8 @@ final class Settings: ObservableObject {
         static let textSize = "textSize"
         static let style = "style"
         static let showIcons = "showIcons"
+        static let beatBounce = "beatBounce"
+        static let showTrackName = "showTrackName"
         static let autoColors = "autoColors"
         static let lyricColor = "lyricColor"
         static let highlightColor = "highlightColor"

@@ -30,12 +30,15 @@ The now-playing detection and album-color extraction come from
   night, money, angels, pizza… — and their plural, -ing and -ed forms get an SF Symbol in the
   highlight color, or an emoji where no symbol fits. It pops in beside the word and keeps moving:
   bouncing, pulsing, wiggling, spinning. About a third of the words in a typical song have one.
-- **Colors from the album.** Lyric text, highlight and secondary text come from the cover art and
-  change with the song — or pick all three yourself.
-- **Moves with the music** (optional). Listens to your Mac's sound output and swells the words and
-  icons on the beat.
-- **On the lock screen.** Lyrics keep going after you lock your Mac, with the track name above
-  them, and the display stays awake while they show (optional).
+- **Gradients from the album.** Up to four colors are pulled from the cover: the lyrics run from a
+  tint of one to another, the highlight box between two vivid ones, secondary text in a deep shade
+  of a third — a green and blue cover gives green-to-blue words in a blue-to-green box. Or pick the
+  three colors yourself.
+- **Bounces to the beat.** Every sung word gives the words a small swell and hop — a line's first
+  word and held notes a little more — so they move with the singing without listening to
+  anything. With **React to the Music** on, the beat of your Mac's sound adds in.
+- **On the lock screen.** Lyrics keep going after you lock your Mac, and the display stays awake
+  while they show (optional).
 - **Light on battery.** 60 fps only around word changes, 30 otherwise, nothing while paused or
   hidden.
 - **Two lyrics sources, asked at once:** [LRCLIB](https://lrclib.net) (open, line-synced) and
@@ -101,10 +104,12 @@ Everything is in the menu-bar menu (the speech-bubble icon):
 | Track, artist and status | What's playing and where its lyrics came from |
 | Style | Stack, Lens or Lines |
 | Show Icons | Icons beside the words that have one |
+| Bounce to the Beat | A small swell and hop on each sung word |
 | React to the Music | Words and icons move with the beat (asks for audio access) |
 | Colors | Auto Sync with Album, or your own Lyric Text, Highlight and Secondary Text colors |
 | Text Size | Small, Medium, Large, Huge |
 | Show Next Line | The upcoming line, smaller, underneath (Lines style) |
+| Show Track Name on Lock Screen | A small, faint title line above the lyrics (off by default) |
 | Show on Desktop / Lock Screen | Where lyrics appear |
 | Position | Top, center or bottom of the screen (desktop) |
 | Display | Which screen lyrics show on |

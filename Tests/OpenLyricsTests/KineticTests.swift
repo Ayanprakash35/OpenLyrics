@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Testing
 @testable import OpenLyrics
@@ -158,15 +159,34 @@ struct LyricColorTests {
         #expect(LyricColors.fromArtwork(.fallback) == .standard)
     }
 
-    @Test func vividCoversLeadWithTheirColor() {
-        let palette = ArtworkPalette(
-            primary: PaletteColor(red: 0.2, green: 0.5, blue: 1.0), secondary: .white, balance: 0.5
-        )
-        let colors = LyricColors.fromArtwork(palette)
-        let highlight = ColorExtractor.HSB(colors.highlight)
-        #expect(abs(highlight.hue - ColorExtractor.HSB(palette.primary).hue) < 0.02)
-        #expect(highlight.saturation >= 0.62)
+    @Test func coversGiveGradientsFromTheirColors() {
+        // Green and blue, like a green-and-blue cover.
+        let green = PaletteColor(red: 0.42, green: 0.92, blue: 0.55)
+        let blue = PaletteColor(red: 0.30, green: 0.62, blue: 1.0)
+        let teal = PaletteColor(red: 0.20, green: 0.80, blue: 0.82)
+        let colors = LyricColors.fromArtwork(accents: [green, blue, teal])
+        func hue(_ color: PaletteColor) -> Double { ColorExtractor.HSB(color).hue }
+        // Lyrics run from the leading color to the second; the box from the second to the leading.
+        #expect(abs(hue(colors.lyric) - hue(green)) < 0.02)
+        #expect(abs(hue(colors.lyricEnd) - hue(blue)) < 0.02)
+        #expect(abs(hue(colors.highlight) - hue(blue)) < 0.02)
+        #expect(abs(hue(colors.highlightEnd) - hue(green)) < 0.02)
+        #expect(abs(hue(colors.secondary) - hue(teal)) < 0.02)
+        #expect(ColorExtractor.HSB(colors.highlight).saturation >= 0.62)
         #expect(ColorExtractor.HSB(colors.secondary).brightness < ColorExtractor.HSB(colors.lyric).brightness)
+    }
+
+    @Test func aSingleColorCoverStillGetsAGradient() {
+        let colors = LyricColors.fromArtwork(accents: [PaletteColor(red: 0.2, green: 0.5, blue: 1.0)])
+        #expect(colors.lyric != colors.lyricEnd)
+        #expect(colors.highlight != colors.highlightEnd)
+    }
+
+    @Test func grayAccentsAreSkipped() {
+        let gray = PaletteColor(red: 0.6, green: 0.6, blue: 0.6)
+        let red = PaletteColor(red: 1, green: 0.3, blue: 0.3)
+        let colors = LyricColors.fromArtwork(accents: [gray, red])
+        #expect(abs(ColorExtractor.HSB(colors.lyric).hue - ColorExtractor.HSB(red).hue) < 0.02)
     }
 
     @Test func hexRoundTrips() throws {
@@ -212,6 +232,42 @@ struct WordIconTests {
     }
 }
 
+@Suite("Beat bounce")
+struct BeatTests {
+    private let words = [
+        LyricWord(text: "a", start: 1, end: 1.3, spaceAfter: true),
+        LyricWord(text: "b", start: 2, end: 3, spaceAfter: false),
+        LyricWord(text: "c", start: 4, end: 4.2, spaceAfter: false),
+    ]
+    private let lineStarts = [true, false, true]
+
+    @Test func silentBeforeTheFirstWordAndLongAfter() {
+        #expect(Beat.fromLyrics(words: words, lineStarts: lineStarts, at: 0.5) == .none)
+        #expect(Beat.fromLyrics(words: words, lineStarts: lineStarts, at: 6) == .none)
+    }
+
+    @Test func hitsAtEachWordAndFades() {
+        let atHit = Beat.fromLyrics(words: words, lineStarts: lineStarts, at: 2.0)
+        let later = Beat.fromLyrics(words: words, lineStarts: lineStarts, at: 2.4)
+        #expect(atHit.pulse > later.pulse)
+        #expect(later.hop == 0)
+        let midHop = Beat.fromLyrics(words: words, lineStarts: lineStarts, at: 2.0 + BeatConfig.hopDuration / 2)
+        #expect(midHop.hop > 0.5)
+    }
+
+    @Test func lineStartsHitHarderThanPlainWords() {
+        let lineStart = Beat.fromLyrics(words: words, lineStarts: lineStarts, at: 4.0)
+        let plain = Beat.fromLyrics(words: [words[2]], lineStarts: [false], at: 4.0)
+        #expect(lineStart.pulse > plain.pulse)
+    }
+
+    @Test func heldNotesHitAlittleHarder() {
+        let held = Beat.fromLyrics(words: [words[1]], lineStarts: [false], at: 2.0)
+        let short = Beat.fromLyrics(words: [words[2]], lineStarts: [false], at: 4.0)
+        #expect(held.pulse > short.pulse)
+    }
+}
+
 @Suite("Frame pacing")
 struct FramePaceTests {
     private let w = FramePaceConfig.fastWindow
@@ -242,5 +298,35 @@ struct FramePaceTests {
         #expect(pace.interval(after: now) == 1 / FramePaceConfig.calm)
         #expect(pace.interval(after: now.addingTimeInterval(1.5)) == 1 / FramePaceConfig.fast)
         #expect(pace.interval(after: now.addingTimeInterval(3)) == 1 / FramePaceConfig.calm)
+    }
+}
+
+@Suite("Artwork accents")
+struct ArtworkAccentTests {
+    /// A 64×64 cover, left half `left`, right half `right`.
+    private func cover(_ left: CGColor, _ right: CGColor) -> CGImage {
+        let context = CGContext(data: nil, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 0,
+                                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(left)
+        context.fill(CGRect(x: 0, y: 0, width: 32, height: 64))
+        context.setFillColor(right)
+        context.fill(CGRect(x: 32, y: 0, width: 32, height: 64))
+        return context.makeImage()!
+    }
+
+    @Test func aTwoColorCoverReportsBoth() {
+        let green = CGColor(srgbRed: 0.1, green: 0.7, blue: 0.3, alpha: 1)
+        let blue = CGColor(srgbRed: 0.1, green: 0.3, blue: 0.8, alpha: 1)
+        let accents = ColorExtractor.extract(from: cover(green, blue)).accents
+        let hues = accents.map { ColorExtractor.HSB($0).hue }
+        #expect(accents.count == 2)
+        #expect(hues.contains { (0.3...0.45).contains($0) })  // green
+        #expect(hues.contains { (0.55...0.7).contains($0) })  // blue
+    }
+
+    @Test func grayCoversReportWhiteAndSilver() {
+        let accents = ColorExtractor.extract(from: cover(CGColor(gray: 0.2, alpha: 1), CGColor(gray: 0.8, alpha: 1))).accents
+        #expect(accents.count == 2)
+        #expect(accents.allSatisfy { ColorExtractor.HSB($0).saturation < 0.18 })
     }
 }

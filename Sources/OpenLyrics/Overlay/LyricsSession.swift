@@ -21,9 +21,14 @@ final class LyricsSession: ObservableObject {
     @Published private(set) var lyrics: Lyrics?
     @Published private(set) var lookupState: LookupState = .idle
     @Published var palette: ArtworkPalette = .fallback
+    /// The artwork's distinct colors, leading first (see `ColorExtractor.Result.accents`).
+    @Published var accents: [PaletteColor] = []
     /// The lyrics' words in order, for the Lens style, built once per lyrics.
     private(set) var lensEntries: [LensLayout.Entry] = []
     private(set) var lensStarts: [TimeInterval] = []
+    /// All sung words in order, and which of them begin a line, for the beat bounce.
+    private(set) var allWords: [LyricWord] = []
+    private(set) var lineStartFlags: [Bool] = []
 
     /// Synced lyrics, a running clock and playback: there is something to follow along with.
     var hasSyncedLyrics: Bool { lyrics?.isSynced == true }
@@ -54,6 +59,14 @@ final class LyricsSession: ObservableObject {
         lyrics = new
         lensEntries = new.map(LensLayout.entries(in:)) ?? []
         lensStarts = lensEntries.map(\.word.start)
+        allWords = lensEntries.map(\.word)
+        lineStartFlags = lensEntries.map { $0.index == 0 }
+    }
+
+    /// The artwork colors to build lyric colors from: the full accent list once known, else the
+    /// two the palette keeps.
+    var artworkAccents: [PaletteColor] {
+        accents.isEmpty ? [palette.primary, palette.secondary] : accents
     }
 
     func setSearching() {

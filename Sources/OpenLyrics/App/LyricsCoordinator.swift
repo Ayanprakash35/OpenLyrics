@@ -90,6 +90,7 @@ final class LyricsCoordinator {
         session.begin(track)
         session.setLookup(.found(Diagnostics.demoLyrics))
         session.palette = Diagnostics.demoPalette
+        session.accents = Diagnostics.demoAccents
         session.isPlaying = true
         restartDemoClock()
         Timer.scheduledTimer(withTimeInterval: Diagnostics.demoDuration, repeats: true) { [weak self] _ in
@@ -252,12 +253,14 @@ final class LyricsCoordinator {
         guard session.track?.identity == track.identity else { return }
         guard let data else {
             session.palette = .fallback
+            session.accents = []
             return
         }
         Task { [weak self] in
             let result = await Task.detached(priority: .utility) { ColorExtractor.extract(fromImageData: data) }.value
             guard let self, self.session.track?.identity == track.identity else { return }
             self.session.palette = result?.palette ?? .fallback
+            self.session.accents = result?.accents ?? []
         }
     }
 

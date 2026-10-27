@@ -75,38 +75,150 @@ enum Motion {
     }
 }
 
-/// The three colors the word styles use: the lyric text, the highlight box behind the word being
-/// sung, and the dimmer secondary text for words on their way out.
+/// The three colors the word styles use — the lyric text, the highlight box behind the word being
+/// sung, and the dimmer secondary text for words on their way out — each a two-color gradient.
 struct LyricColors: Equatable, Sendable {
     var lyric: PaletteColor
+    var lyricEnd: PaletteColor
     var highlight: PaletteColor
+    var highlightEnd: PaletteColor
     var secondary: PaletteColor
+    var secondaryEnd: PaletteColor
     /// Text inside the highlight box.
     var boxedText = PaletteColor(red: 1, green: 0.97, blue: 0.97)
 
-    /// Used before any artwork has been seen and for colorless covers: a warm coral and pink.
+    init(lyric: PaletteColor, lyricEnd: PaletteColor, highlight: PaletteColor, highlightEnd: PaletteColor,
+         secondary: PaletteColor, secondaryEnd: PaletteColor) {
+        self.lyric = lyric
+        self.lyricEnd = lyricEnd
+        self.highlight = highlight
+        self.highlightEnd = highlightEnd
+        self.secondary = secondary
+        self.secondaryEnd = secondaryEnd
+    }
+
+    /// One color per role, each spread into a gentle gradient of neighboring shades.
+    init(lyric: PaletteColor, highlight: PaletteColor, secondary: PaletteColor) {
+        self.init(
+            lyric: lyric, lyricEnd: Self.neighbor(of: lyric),
+            highlight: highlight, highlightEnd: Self.neighbor(of: highlight),
+            secondary: secondary, secondaryEnd: Self.neighbor(of: secondary)
+        )
+    }
+
+    /// Before any artwork has been seen, and for colorless covers: coral to peach text, a pink to
+    /// violet box, deep rose secondary text.
     static let standard = LyricColors(
-        lyric: PaletteColor(red: 0.96, green: 0.36, blue: 0.36),
-        highlight: PaletteColor(red: 0.89, green: 0.27, blue: 0.43),
-        secondary: PaletteColor(red: 0.52, green: 0.22, blue: 0.27)
+        lyric: PaletteColor(red: 0.98, green: 0.42, blue: 0.40),
+        lyricEnd: PaletteColor(red: 1.0, green: 0.62, blue: 0.45),
+        highlight: PaletteColor(red: 0.91, green: 0.25, blue: 0.45),
+        highlightEnd: PaletteColor(red: 0.62, green: 0.28, blue: 0.86),
+        secondary: PaletteColor(red: 0.55, green: 0.22, blue: 0.30),
+        secondaryEnd: PaletteColor(red: 0.42, green: 0.22, blue: 0.52)
     )
 
-    /// Colors from the album: the artwork's leading color as the highlight, a lighter tint of it
-    /// for the lyrics and a darker one for secondary text. Covers too gray to tint anything get
+    /// Colors from the album's accent colors (`ColorExtractor.Result.accents`, leading first). The
+    /// lyrics run from a light tint of the leading color to one of the second; the highlight box
+    /// from the second color to the leading one, vivid; secondary text is a deep shade of the third.
+    /// A cover with one color gets its neighboring shades. Covers too gray to tint anything get
     /// `standard`.
+    static func fromArtwork(accents: [PaletteColor]) -> LyricColors {
+        let colors = accents.filter { ColorExtractor.HSB($0).saturation >= 0.18 }
+        guard let lead = colors.first else { return standard }
+        let second = colors.count > 1 ? colors[1] : hueShifted(lead, by: 0.07)
+        let third = colors.count > 2 ? colors[2] : hueShifted(second, by: 0.05)
+        return LyricColors(
+            lyric: tint(lead), lyricEnd: tint(second),
+            highlight: vivid(second), highlightEnd: vivid(lead),
+            secondary: shade(third), secondaryEnd: shade(second)
+        )
+    }
+
+    /// The two artwork colors `ArtworkPalette` keeps, for callers without the full accent list.
     static func fromArtwork(_ palette: ArtworkPalette) -> LyricColors {
-        let lead = ColorExtractor.HSB(palette.primary)
-        guard lead.saturation >= 0.18 else { return standard }
-        var highlight = lead
-        highlight.saturation = max(lead.saturation, 0.62)
-        highlight.brightness = 0.88
-        var lyric = lead
-        lyric.saturation = max(lead.saturation * 0.72, 0.35)
-        lyric.brightness = 0.98
-        var secondary = lead
-        secondary.saturation = max(lead.saturation * 0.6, 0.3)
-        secondary.brightness = 0.55
-        return LyricColors(lyric: lyric.rgb, highlight: highlight.rgb, secondary: secondary.rgb)
+        fromArtwork(accents: [palette.primary, palette.secondary])
+    }
+
+    private static func tint(_ color: PaletteColor) -> PaletteColor {
+        var hsb = ColorExtractor.HSB(color)
+        hsb.saturation = max(hsb.saturation * 0.72, 0.32)
+        hsb.brightness = 0.98
+        return hsb.rgb
+    }
+
+    private static func vivid(_ color: PaletteColor) -> PaletteColor {
+        var hsb = ColorExtractor.HSB(color)
+        hsb.saturation = max(hsb.saturation, 0.62)
+        hsb.brightness = 0.86
+        return hsb.rgb
+    }
+
+    private static func shade(_ color: PaletteColor) -> PaletteColor {
+        var hsb = ColorExtractor.HSB(color)
+        hsb.saturation = max(hsb.saturation * 0.65, 0.3)
+        hsb.brightness = 0.55
+        return hsb.rgb
+    }
+
+    static func hueShifted(_ color: PaletteColor, by turns: Double) -> PaletteColor {
+        var hsb = ColorExtractor.HSB(color)
+        hsb.hue += turns
+        return hsb.rgb
+    }
+
+    /// A shade next to `color`: a little further round the color wheel, a little lighter.
+    static func neighbor(of color: PaletteColor) -> PaletteColor {
+        var hsb = ColorExtractor.HSB(hueShifted(color, by: 0.05))
+        hsb.brightness = min(1, hsb.brightness * 1.08)
+        return hsb.rgb
+    }
+}
+
+/// Beat bounce tuning.
+enum BeatConfig {
+    /// Seconds a word's kick takes to fade. Sane range: 0.1–0.35.
+    static let decay: TimeInterval = 0.2
+    /// Seconds of the little hop each kick gives. Sane range: 0.15–0.35.
+    static let hopDuration: TimeInterval = 0.24
+    /// Kick strength of an ordinary word, a line's first word, and the extra for a held note.
+    static let wordKick = 0.55
+    static let lineKick = 1.0
+    static let heldKick = 0.2
+    /// A word at least this long counts as held. Sane range: 0.5–1.2.
+    static let heldWord: TimeInterval = 0.7
+}
+
+/// How hard the music hits right now, in two shapes the styles animate with.
+struct Beat: Equatable, Sendable {
+    /// 0...1, jumping up at a hit and fading: scale and brightness.
+    var pulse = 0.0
+    /// 0...1, a single arc up and back down after a hit: the little bounce.
+    var hop = 0.0
+
+    static let none = Beat()
+
+    /// The beat from the lyrics' own timing: every sung word is a hit — a line's first word and
+    /// held notes harder — so the words bounce with the singing without listening to any audio.
+    /// `lineStarts` marks which of `words` begin a line.
+    static func fromLyrics(words: [LyricWord], lineStarts: [Bool], at time: TimeInterval) -> Beat {
+        var low = 0, high = words.count - 1, last = -1
+        while low <= high {
+            let middle = (low + high) / 2
+            if words[middle].start <= time { last = middle; low = middle + 1 } else { high = middle - 1 }
+        }
+        guard last >= 0 else { return .none }
+        let word = words[last]
+        let age = time - word.start
+        guard age < 1 else { return .none }
+        var kick = last < lineStarts.count && lineStarts[last] ? BeatConfig.lineKick : BeatConfig.wordKick
+        if word.end - word.start >= BeatConfig.heldWord { kick = min(1, kick + BeatConfig.heldKick) }
+        let hop = age < BeatConfig.hopDuration ? sin(Double.pi * age / BeatConfig.hopDuration) : 0
+        return Beat(pulse: kick * exp(-age / BeatConfig.decay), hop: kick * hop)
+    }
+
+    /// The stronger of two beats (lyrics and audio).
+    func combined(with other: Beat) -> Beat {
+        Beat(pulse: max(pulse, other.pulse), hop: max(hop, other.hop))
     }
 }
 

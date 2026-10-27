@@ -1,16 +1,15 @@
 import SwiftUI
 
-/// Draws the words a word style placed: each at its position, size, tilt and color, the sung word
-/// in its highlight box, icons beside the words that have one. The whole arrangement drifts slowly
-/// in 3D and swells with the beat when music reactions are on.
+/// Draws the words a word style placed: each at its position, size, tilt and gradient, the sung
+/// word in its highlight box, icons beside the words that have one. The whole arrangement drifts
+/// slowly in 3D and gives a small bounce on each beat.
 struct KineticWordsView: View {
     var words: [PlacedWord]
     var colors: LyricColors
     var baseSize: CGFloat
     /// Song time, for the slow drift.
     var time: TimeInterval
-    /// 0...1: how hard the current beat hits (0 without music reactions).
-    var beat: Double
+    var beat: Beat
     var drift: Bool
 
     var body: some View {
@@ -20,27 +19,33 @@ struct KineticWordsView: View {
                     .offset(x: word.x * baseSize, y: word.y * baseSize)
             }
         }
+        // The bounce: a slight swell and a small hop on each beat. Subtle on purpose.
+        .scaleEffect(1 + 0.022 * beat.pulse)
+        .offset(y: -baseSize * 0.035 * beat.hop)
         .rotation3DEffect(.degrees(drift ? 7 * sin(time * 0.5) : 0), axis: (x: 0, y: 1, z: 0), perspective: 0.45)
         .rotation3DEffect(.degrees(drift ? 4 * sin(time * 0.37 + 1.3) : 0), axis: (x: 1, y: 0, z: 0), perspective: 0.45)
-        .scaleEffect(1 + 0.045 * beat)
     }
+}
+
+enum ChipConfig {
+    /// The largest scale a style gives a word; anything bigger is drawn scaled up.
+    static let renderScale: CGFloat = 1.35
+    /// Perspective strength of the tilts, as in `rotation3DEffect(perspective:)`.
+    static let perspective: CGFloat = 0.55
 }
 
 /// One word, with its box and icon.
 ///
-/// The word is laid out once at a fixed size (`renderScale` × the base size, the largest it gets)
+/// The word is laid out once at a fixed size (`ChipConfig.renderScale` × the base size, the largest it gets)
 /// and only scaled down on the GPU as it moves through the styles. Laying text out at a new size
 /// every frame would re-shape it and churn variable-font instances 60 times a second.
 struct WordChip: View {
     var word: PlacedWord
     var colors: LyricColors
     var baseSize: CGFloat
-    var beat: Double
+    var beat: Beat
 
-    /// The largest scale a style gives a word; anything bigger is drawn scaled up.
-    static let renderScale: CGFloat = 1.35
-
-    private var size: CGFloat { max(1, baseSize * Self.renderScale) }
+    private var size: CGFloat { max(1, baseSize * ChipConfig.renderScale) }
 
     var body: some View {
         HStack(spacing: size * 0.2) {
@@ -49,36 +54,53 @@ struct WordChip: View {
             if let icon = word.icon, !word.iconLeading { iconView(icon) }
         }
         .fixedSize()
-        .scaleEffect(max(0.001, word.scale / Self.renderScale))
-        .rotation3DEffect(.degrees(word.tiltY), axis: (x: 0, y: 1, z: 0), perspective: 0.55)
-        .rotation3DEffect(.degrees(word.tiltX), axis: (x: 1, y: 0, z: 0), perspective: 0.55)
+        .scaleEffect(max(0.001, word.scale / ChipConfig.renderScale))
+        .rotation3DEffect(.degrees(word.tiltY), axis: (x: 0, y: 1, z: 0), perspective: ChipConfig.perspective)
+        .rotation3DEffect(.degrees(word.tiltX), axis: (x: 1, y: 0, z: 0), perspective: ChipConfig.perspective)
         .rotationEffect(.degrees(word.tiltZ))
         .opacity(word.opacity)
     }
 
-    private var textColor: PaletteColor {
+    /// The text gradient's two ends: the lyric gradient, whitening inside the box and dimming to
+    /// the secondary gradient as the word fades.
+    private var textStart: PaletteColor {
         colors.lyric.mixed(with: colors.boxedText, word.boxed).mixed(with: colors.secondary, word.faded)
     }
 
+    private var textEnd: PaletteColor {
+        colors.lyricEnd.mixed(with: colors.boxedText, word.boxed * 0.85).mixed(with: colors.secondaryEnd, word.faded)
+    }
+
+    private var label: some View {
+        Text(word.text).font(.system(size: size, weight: .bold))
+    }
+
     private var boxedText: some View {
-        // Drawn white once and tinted on the GPU: changing the text's own color every frame of a
-        // transition would re-rasterize its glyphs each time.
-        Text(word.text)
-            .font(.system(size: size, weight: .bold))
-            .foregroundStyle(.white)
-            .colorMultiply(textColor.color)
+        // The glyphs are a mask over a gradient: they're drawn once, and only the gradient's
+        // colors change from frame to frame during a transition.
+        label
+            .hidden()
+            .overlay {
+                LinearGradient(colors: [textStart.color, textEnd.color], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .mask(label)
+            }
             .padding(.horizontal, size * 0.12)
             // The box hugs the letters rather than the full line height.
             .padding(.vertical, -size * 0.06)
             .background {
                 if word.boxed > 0.01 {
+                    let dark = PaletteColor(red: 0.08, green: 0.04, blue: 0.08)
                     ZStack {
-                        // Unsung part: the highlight, a little darker.
-                        Rectangle().fill(colors.highlight.mixed(with: PaletteColor(red: 0.1, green: 0.02, blue: 0.04), 0.14).color)
-                        // Sung part: the full highlight, sweeping left to right.
-                        Rectangle().fill(colors.highlight.color).mask(fillMask)
+                        // Unsung part: the highlight gradient, a little darker.
+                        LinearGradient(
+                            colors: [colors.highlight.mixed(with: dark, 0.16).color, colors.highlightEnd.mixed(with: dark, 0.16).color],
+                            startPoint: .leading, endPoint: .trailing
+                        )
+                        // Sung part: the full gradient, sweeping left to right.
+                        LinearGradient(colors: [colors.highlight.color, colors.highlightEnd.color], startPoint: .leading, endPoint: .trailing)
+                            .mask(fillMask)
                     }
-                    .brightness(0.12 * beat)
+                    .brightness(0.07 * beat.pulse)
                     .opacity(word.boxed)
                 }
             }
@@ -99,7 +121,8 @@ struct WordChip: View {
     }
 
     private func iconView(_ icon: WordIcon) -> some View {
-        WordIconView(icon: icon, size: size * 0.8, age: word.age, color: colors.highlight.color, beat: beat)
+        WordIconView(icon: icon, size: size * 0.8, age: word.age,
+                     gradient: [colors.highlight.color, colors.highlightEnd.color], beat: beat)
     }
 }
 
@@ -108,16 +131,18 @@ struct WordIconView: View {
     var icon: WordIcon
     var size: CGFloat
     var age: TimeInterval
-    var color: Color
-    var beat: Double
+    /// The highlight gradient, for SF Symbols (emoji keep their own colors).
+    var gradient: [Color]
+    var beat: Beat
 
     var body: some View {
         let pop = Motion.backOut(age, duration: 0.38, overshoot: 2.6)
         let motion = IconMotionState(icon.motion, age: max(0, age))
         glyph
-            .scaleEffect(max(0.001, pop * motion.scale * (1 + 0.18 * beat)))
+            .scaleEffect(max(0.001, pop * motion.scale * (1 + 0.12 * beat.pulse)))
             .rotationEffect(.degrees(motion.rotation))
-            .offset(y: motion.lift * size)
+            // Icons hop a touch higher than the words on each beat.
+            .offset(y: (motion.lift - 0.07 * beat.hop) * size)
             .opacity(Motion.clamp(age / 0.08))
     }
 }
@@ -131,7 +156,7 @@ extension WordIconView {
         } else {
             Image(systemName: icon.symbol)
                 .font(.system(size: size, weight: .bold))
-                .foregroundStyle(color)
+                .foregroundStyle(LinearGradient(colors: gradient, startPoint: .top, endPoint: .bottom))
         }
     }
 }

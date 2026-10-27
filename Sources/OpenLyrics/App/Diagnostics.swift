@@ -71,19 +71,19 @@ enum Diagnostics {
             try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: file)
             print(file.path)
         }
-        let colors = LyricColors.fromArtwork(demoPalette)
+        let colors = LyricColors.fromArtwork(accents: demoAccents)
         let stackBase = Settings.TextSize.medium.pointSize * 2.2
         let lensBase = Settings.TextSize.medium.pointSize * 1.9
         let entries = LensLayout.entries(in: demoLyrics)
         let starts = entries.map(\.word.start)
         for time in [1.12, 1.45, 2.3, 3.5, 5.15, 9.3, 10.4, 11.5] {
             let words = StackLayout.words(in: demoLyrics, at: time, icons: true)
-            save(KineticWordsView(words: words, colors: colors, baseSize: stackBase, time: time, beat: 0, drift: true),
+            save(KineticWordsView(words: words, colors: colors, baseSize: stackBase, time: time, beat: .none, drift: true),
                  width: 1000, height: 440, name: String(format: "stack-%05.2f", time))
         }
         for time in [2.3, 6.2, 13.6] {
             let words = LensLayout.words(in: entries, starts: starts, at: time, icons: true)
-            save(KineticWordsView(words: words, colors: colors, baseSize: lensBase, time: time, beat: 0, drift: false),
+            save(KineticWordsView(words: words, colors: colors, baseSize: lensBase, time: time, beat: .none, drift: false),
                  width: 1000, height: 520, name: String(format: "lens-%05.2f", time))
         }
         exit(0)
@@ -94,7 +94,7 @@ enum Diagnostics {
     @MainActor
     static func runBenchmarkIfRequested() {
         guard CommandLine.arguments.contains("--benchmark") else { return }
-        let colors = LyricColors.fromArtwork(demoPalette)
+        let colors = LyricColors.fromArtwork(accents: demoAccents)
         let entries = LensLayout.entries(in: demoLyrics)
         let starts = entries.map(\.word.start)
         for style in ["stack", "lens"] {
@@ -106,7 +106,7 @@ enum Diagnostics {
                 let words = style == "stack"
                     ? StackLayout.words(in: demoLyrics, at: time, icons: true)
                     : LensLayout.words(in: entries, starts: starts, at: time, icons: true)
-                let view = KineticWordsView(words: words, colors: colors, baseSize: 75, time: time, beat: 0, drift: style == "stack")
+                let view = KineticWordsView(words: words, colors: colors, baseSize: 75, time: time, beat: .none, drift: style == "stack")
                     .frame(width: 1200, height: 400)
                 _ = ImageRenderer(content: view).cgImage
             }
@@ -153,9 +153,11 @@ enum Diagnostics {
 
     static let demoDuration: TimeInterval = 28
     static let demoTrack = NowPlayingMonitor.Track(player: .music, id: "demo", title: "Word by Word", artist: "OpenLyrics Demo", album: "")
-    static let demoPalette = ArtworkPalette(
-        primary: PaletteColor(red: 1.0, green: 0.62, blue: 0.38),
-        secondary: PaletteColor(red: 1.0, green: 0.38, blue: 0.55),
-        balance: 0.6
-    )
+    /// A green and blue cover, the kind of artwork the gradients are made for.
+    static let demoAccents = [
+        PaletteColor(red: 0.42, green: 0.92, blue: 0.55),
+        PaletteColor(red: 0.30, green: 0.62, blue: 1.0),
+        PaletteColor(red: 0.20, green: 0.80, blue: 0.82),
+    ]
+    static let demoPalette = ArtworkPalette(primary: demoAccents[0], secondary: demoAccents[1], balance: 0.6)
 }

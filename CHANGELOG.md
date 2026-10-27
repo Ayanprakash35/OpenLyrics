@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0 — 2026-10-27
+
+- **Gradients from the album cover.** Up to four distinct colors are read from the artwork (they
+  used to be two, and only one was used). Lyric text runs from a tint of the leading color to one
+  of the second, the highlight box from the second to the leading one, and secondary text is a
+  deep shade of the third — a green and blue cover gives green-to-blue words in a blue-to-green
+  box. Icons take the highlight gradient. One-color covers get neighboring shades; custom colors
+  get gentle gradients of their own.
+- **Bounce to the Beat** (on by default): each sung word gives the words a small swell and a hop,
+  icons a touch more, the box a hint of brightness; a line's first word and held notes hit a
+  little harder. No permission needed — it follows the lyrics' timing. With React to the Music on,
+  the audio beat adds in.
+- **Track name** on the lock screen is now small, faint and in spaced capitals — and off unless
+  you turn on Show Track Name on Lock Screen.
+
 ## 0.2.1 — 2026-10-27
 
 - **Four times the word icons**: over 1,000 words (from 266), now including the words songs use

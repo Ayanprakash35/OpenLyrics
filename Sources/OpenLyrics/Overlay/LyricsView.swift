@@ -65,10 +65,33 @@ struct LyricsOverlayView: View {
         let _ = updatePace(at: time)
         switch settings.style {
         case .lines:
-            LyricsStage(lyrics: session.lyrics, time: time, style: style, caption: surface == .lockScreen ? caption : nil)
+            VStack(spacing: style.fontSize * 0.4) {
+                if let caption = shownCaption { TrackCaption(text: caption, size: style.fontSize) }
+                LyricsStage(lyrics: session.lyrics, time: time, style: style, caption: nil)
+                    .scaleEffect(1 + 0.018 * beat(at: time).pulse)
+            }
         case .stack, .lens:
             kinetic(time: time)
         }
+    }
+
+    /// The beat to bounce to: from the lyrics' timing when Bounce to the Beat is on, and from the
+    /// Mac's sound when React to the Music runs — whichever hits harder.
+    private func beat(at time: TimeInterval?) -> Beat {
+        var beat = Beat.none
+        if settings.beatBounce, let time {
+            beat = Beat.fromLyrics(words: session.allWords, lineStarts: session.lineStartFlags, at: time)
+        }
+        if let audio = audio?(), audio.hasAudio, !audio.isSilent {
+            let pulse = Double(audio.beatPulse)
+            beat = beat.combined(with: Beat(pulse: pulse, hop: pulse * 0.8))
+        }
+        return beat
+    }
+
+    /// The track name, when it's wanted and there's a lock screen to put it on.
+    private var shownCaption: String? {
+        surface == .lockScreen && settings.showTrackName ? caption : nil
     }
 
     /// Tells the schedule when the next burst of motion is due.
@@ -104,20 +127,14 @@ struct LyricsOverlayView: View {
             default: return StackLayout.words(in: lyrics, at: time, icons: settings.showIcons)
             }
         }()
-        VStack(spacing: base * 0.3) {
-            if surface == .lockScreen, let caption {
-                Text(caption)
-                    .font(.system(size: base * 0.3, weight: .semibold))
-                    .foregroundStyle(colors.lyric.color.opacity(0.85))
-                    .lineLimit(1)
-                    .shadow(color: .black.opacity(0.4), radius: 4, y: 1)
-            }
+        VStack(spacing: base * 0.25) {
+            if let caption = shownCaption { TrackCaption(text: caption, size: base) }
             KineticWordsView(
                 words: words,
                 colors: colors,
                 baseSize: base,
                 time: time ?? 0,
-                beat: Double(audio?().beatPulse ?? 0),
+                beat: beat(at: time),
                 drift: settings.style == .stack
             )
             .frame(maxWidth: .infinity)
@@ -125,7 +142,7 @@ struct LyricsOverlayView: View {
         }
     }
 
-    private var colors: LyricColors { settings.lyricColors(artwork: session.palette) }
+    private var colors: LyricColors { settings.lyricColors(accents: session.artworkAccents) }
 
     /// The Stack and Lens styles' base word size: bigger than a line of text, since one word
     /// carries the moment.
@@ -167,6 +184,22 @@ struct LyricsOverlayView: View {
             // A little below center: clear of the clock above and the login field below.
             EdgeInsets(top: 160, leading: 60, bottom: 40, trailing: 60)
         }
+    }
+}
+
+/// The track name above the lyrics on the lock screen: small, light and see-through, so it doesn't
+/// compete with the words.
+struct TrackCaption: View {
+    var text: String
+    /// The lyrics' base size; the caption is a fraction of it, never below legible.
+    var size: CGFloat
+
+    var body: some View {
+        Text(text.uppercased())
+            .font(.system(size: max(10, size * 0.16), weight: .medium))
+            .tracking(max(0.6, size * 0.012))
+            .foregroundStyle(.white.opacity(0.38))
+            .lineLimit(1)
     }
 }
 

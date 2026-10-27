@@ -66,6 +66,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
         menu.addItem(choice("Style", Settings.Style.allCases, \.style, title: \.title))
         menu.addItem(toggle("Show Icons", \.showIcons))
+        menu.addItem(toggle("Bounce to the Beat", \.beatBounce))
         menu.addItem(reactItem())
         menu.addItem(colorsMenu())
         menu.addItem(choice("Text Size", Settings.TextSize.allCases, \.textSize, title: \.title))
@@ -80,6 +81,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.addItem(lockItem)
         menu.addItem(choice("Position", Settings.Position.allCases, \.position, title: \.title))
         menu.addItem(displayMenu())
+        menu.addItem(toggle("Show Track Name on Lock Screen", \.showTrackName))
         menu.addItem(toggle("Keep Display Awake on Lock Screen", \.keepAwakeWhenLocked))
         menu.addItem(.separator())
 
@@ -230,7 +232,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             self?.settings.autoColors.toggle()
         })
         submenu.addItem(.separator())
-        let current = settings.lyricColors(artwork: session.palette)
+        let current = settings.lyricColors(accents: session.artworkAccents)
         for role in Settings.ColorRole.allCases {
             let color: PaletteColor = switch role {
             case .lyric: current.lyric
@@ -240,10 +242,15 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             let entry = ActionItem("\(role.title)…") { [weak self] in
                 guard let self else { return }
                 ColorPicker.shared.pick(role.title, starting: color) { [weak self] picked in
-                    self?.settings.setCustomColor(picked, for: role)
+                    self?.settings.setCustomColor(picked, for: role, current: current)
                 }
             }
-            entry.image = Self.swatch(color)
+            let end: PaletteColor = switch role {
+            case .lyric: current.lyricEnd
+            case .highlight: current.highlightEnd
+            case .secondary: current.secondaryEnd
+            }
+            entry.image = Self.swatch(color, end)
             submenu.addItem(entry)
         }
         submenu.addItem(.separator())
@@ -252,10 +259,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         return item
     }
 
-    private static func swatch(_ color: PaletteColor) -> NSImage {
+    /// A rounded square showing a color's gradient.
+    private static func swatch(_ start: PaletteColor, _ end: PaletteColor) -> NSImage {
         NSImage(size: NSSize(width: 14, height: 14), flipped: false) { rect in
-            color.nsColor.setFill()
-            NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 1), xRadius: 3.5, yRadius: 3.5).fill()
+            let path = NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 1), xRadius: 3.5, yRadius: 3.5)
+            NSGradient(starting: start.nsColor, ending: end.nsColor)?.draw(in: path, angle: -45)
             return true
         }
     }

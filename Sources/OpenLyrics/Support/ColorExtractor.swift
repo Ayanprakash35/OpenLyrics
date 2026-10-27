@@ -122,7 +122,13 @@ enum ColorExtractor {
     struct Result: Equatable, Sendable {
         var palette: ArtworkPalette
         var source: Source
+        /// Every distinct color family the artwork shows, glow-ready, leading color first and the
+        /// rest by rank (at most `maxAccents`). OpenLyrics builds its gradients from these.
+        var accents: [PaletteColor] = []
     }
+
+    /// Most accent colors reported. Sane range: 2–6.
+    static let maxAccents = 4
 
     /// nil only when the data can't be decoded as an image.
     static func extract(fromImageData data: Data) -> Result? {
@@ -317,16 +323,17 @@ extension ColorExtractor {
         let primary = families.remove(at: primaryIndex)
         let source: Source = primary.isVivid ? .artwork : .boosted
 
+        let accents = [primary.color] + families.prefix(maxAccents - 1).map(\.color)
         guard let secondary = families.first else {
             let palette = ArtworkPalette(
                 primary: primary.color, secondary: hueShifted(primary.color), balance: config.derivedBalance
             )
-            return Result(palette: palette, source: source)
+            return Result(palette: palette, source: source, accents: accents)
         }
         let share = primary.share / (primary.share + secondary.share)
         let balance = min(max(share, config.balanceRange.lowerBound), config.balanceRange.upperBound)
         let palette = ArtworkPalette(primary: primary.color, secondary: secondary.color, balance: balance)
-        return Result(palette: palette, source: source)
+        return Result(palette: palette, source: source, accents: accents)
     }
 
     /// White and silver, carrying the artwork's average tint (share-weighted mean a*, b*),
@@ -343,7 +350,7 @@ extension ColorExtractor {
         let white = Lab(l: config.monochromeLightness, a: a * scale, b: b * scale)
         let silver = Lab(l: config.monochromeSecondaryLightness, a: a * scale, b: b * scale + config.monochromeSilverCoolness)
         let palette = ArtworkPalette(primary: white.rgb, secondary: silver.rgb, balance: config.monochromeBalance)
-        return Result(palette: palette, source: .monochrome)
+        return Result(palette: palette, source: .monochrome, accents: [palette.primary, palette.secondary])
     }
 
     /// A single-cluster family, or nil for a cluster too neutral to color the glow.
