@@ -108,6 +108,12 @@ struct StackLayoutTests {
         #expect(words.map(\.text) == ["lanterns"])
     }
 
+    @Test func neighboringWordsGetDifferentColorSlots() throws {
+        let words = StackLayout.words(in: song, at: 12.6, icons: false)
+        let slots = words.map(\.colorSlot)
+        #expect(Set(slots).count == slots.count)
+    }
+
     @Test func iconsAttachWhenAsked() {
         let song = lyrics([line("dance tonight", start: 0, step: 1)])
         #expect(StackLayout.words(in: song, at: 0.5, icons: true).first?.icon?.symbol == "figure.dance")
@@ -187,6 +193,31 @@ struct LyricColorTests {
         let red = PaletteColor(red: 1, green: 0.3, blue: 0.3)
         let colors = LyricColors.fromArtwork(accents: [gray, red])
         #expect(abs(ColorExtractor.HSB(colors.lyric).hue - ColorExtractor.HSB(red).hue) < 0.02)
+    }
+
+    @Test func perWordGivesNeighborsDifferentSolidColors() {
+        let green = PaletteColor(red: 0.42, green: 0.92, blue: 0.55)
+        let blue = PaletteColor(red: 0.30, green: 0.62, blue: 1.0)
+        var colors = LyricColors.fromArtwork(accents: [green, blue])
+        colors.perWord = true
+        let first = colors.resolved(slot: 0), second = colors.resolved(slot: 1)
+        #expect(first.highlight != second.highlight)
+        #expect(first.highlight == first.highlightEnd)
+        #expect(colors.resolved(slot: 2) == first)
+        #expect(colors.resolved(slot: -1) == second)
+    }
+
+    @Test func gradientModeSharesTheGradients() {
+        var colors = LyricColors.fromArtwork(accents: [PaletteColor(red: 0.42, green: 0.92, blue: 0.55)])
+        colors.perWord = false
+        #expect(colors.resolved(slot: 0) == colors.resolved(slot: 5))
+        #expect(colors.resolved(slot: 0).highlight != colors.resolved(slot: 0).highlightEnd)
+    }
+
+    @Test func singleColorCoversStillVaryPerWord() {
+        var colors = LyricColors.fromArtwork(accents: [PaletteColor(red: 0.2, green: 0.5, blue: 1.0)])
+        colors.perWord = true
+        #expect(Set([0, 1, 2].map { colors.resolved(slot: $0).highlight.hex }).count == 3)
     }
 
     @Test func hexRoundTrips() throws {

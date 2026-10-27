@@ -339,7 +339,7 @@ private final class DiscardingScreenOutput: NSObject, SCStreamOutput, @unchecked
 /// Hands a single input buffer to `AVAudioConverter`'s pull callback exactly once. A class (not a
 /// captured `var`) because the callback is `@Sendable`; it only ever runs synchronously inside
 /// `convert`, on the sample queue.
-private final class OneShotInput: @unchecked Sendable {
+final class OneShotInput: @unchecked Sendable {
     private var buffer: AVAudioPCMBuffer?
     init(_ buffer: AVAudioPCMBuffer) { self.buffer = buffer }
     func take() -> AVAudioPCMBuffer? {

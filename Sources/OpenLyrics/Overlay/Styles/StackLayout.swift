@@ -25,6 +25,8 @@ struct PlacedWord: Equatable, Identifiable {
     var iconLeading: Bool
     /// Seconds since the word started being sung (negative before), for the icon's pop and motion.
     var age: TimeInterval
+    /// Which per-word color the word takes; neighboring words differ.
+    var colorSlot = 0
 }
 
 /// Stack tuning. Lengths are in multiples of the base font size.
@@ -125,7 +127,9 @@ enum StackLayout {
                 tiltZ: StackConfig.maxTiltZ * seed(5),
                 icon: icon,
                 iconLeading: seed(6) < 0,
-                age: time - word.start
+                age: time - word.start,
+                // Consecutive words step through the colors; each line starts somewhere new.
+                colorSlot: index + Int(line.start.rounded())
             )
             // Entering and leaving words take up only part of a row, so the wall moves smoothly.
             let presence = slot > 0 ? 1 - slot : Motion.clamp((slot + 3.2) / 1.2)

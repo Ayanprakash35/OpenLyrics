@@ -1,20 +1,20 @@
 import AppKit
 import os
 
-/// Listens to the Mac's sound output while lyrics show, so the lyrics can move with the music:
-/// beats, bass and loudness from Open Glow's capture and beat detection (`AudioEngine`,
-/// `BeatDetector`).
+/// Listens to the Mac's sound output so the lyrics can move with the music: beats, bass and
+/// loudness from Open Glow's beat detection (`BeatDetector`).
 ///
-/// Needs Screen & System Audio Recording access, which macOS asks for the first time capture is
-/// requested; OpenLyrics only ever captures audio (and a 2×2 placeholder video frame
-/// ScreenCaptureKit insists on), never the screen's contents or the microphone. Runs only while
-/// it's wanted — the setting is on, a song plays and lyrics are visible — and stops the moment it
-/// isn't.
+/// On macOS 14.2 and later it listens through a Core Audio process tap (`SystemAudioTap`), which
+/// needs only System Audio Recording access and isn't a screen recording — so Apple Music doesn't
+/// stall when the Mac locks or unlocks. Earlier systems fall back to ScreenCaptureKit
+/// (`AudioEngine`), which macOS counts as recording the screen. Never the microphone.
 @MainActor
 final class MusicReactor {
     private let logger = Logger(subsystem: "com.openlyrics.app", category: "MusicReactor")
     private let engine = AudioEngine()
     private let detector: BeatDetector
+    /// The process tap, where the system has one (typed `AnyObject` for the availability check).
+    private let tap: AnyObject?
     private var wanted = false
     private var retryTask: Task<Void, Never>?
     private var retryAttempt = 0
@@ -24,15 +24,27 @@ final class MusicReactor {
 
     init() {
         detector = BeatDetector(ringBuffer: engine.ringBuffer)
+        if #available(macOS 14.2, *) {
+            tap = SystemAudioTap(ringBuffer: engine.ringBuffer)
+        } else {
+            tap = nil
+        }
         engine.onStateChange = { [weak self] in self?.onStateChange?() }
         engine.onStartFailed = { [weak self] _ in self?.scheduleRetry(ranFor: 0) }
         engine.onUnexpectedStop = { [weak self] _, ranFor in self?.scheduleRetry(ranFor: ranFor) }
     }
 
-    var isRunning: Bool { engine.isCapturing }
+    /// Listening through a process tap rather than a screen recording.
+    var usesTap: Bool { tap != nil }
 
-    /// Whether macOS lets OpenLyrics capture audio. A live check that never prompts.
-    var hasAccess: Bool { engine.checkPermission() == .granted }
+    var isRunning: Bool {
+        if #available(macOS 14.2, *), let tap = tap as? SystemAudioTap { return tap.isRunning }
+        return engine.isCapturing
+    }
+
+    /// Whether macOS lets OpenLyrics capture audio. A live check that never prompts. A tap can't be
+    /// checked ahead of time: macOS asks when it first starts.
+    var hasAccess: Bool { usesTap || engine.checkPermission() == .granted }
 
     /// The latest analysis: beat pulse, bass, mid, treble, loudness. Safe from any thread; all
     /// zero while not running.
@@ -50,6 +62,7 @@ final class MusicReactor {
         } else {
             retryTask?.cancel()
             retryTask = nil
+            if #available(macOS 14.2, *), let tap = tap as? SystemAudioTap { tap.stop() }
             engine.stop()
             detector.stop()
             logger.info("Stopped listening")
@@ -59,6 +72,7 @@ final class MusicReactor {
     /// Asks macOS for access (shows its prompt the first time). Returns whether access is granted
     /// now; when it isn't, the user has to allow OpenLyrics in System Settings and relaunch it.
     func requestAccess() async -> Bool {
+        if usesTap { return true }
         engine.allowRetryAfterRefusal()
         await engine.registerForScreenRecording()
         let granted = engine.permissionState == .granted
@@ -74,6 +88,23 @@ final class MusicReactor {
     }
 
     private func start() {
+        if #available(macOS 14.2, *), let tap = tap as? SystemAudioTap {
+            guard wanted, !tap.isActive else { return }
+            detector.start()
+            tap.start { [weak self] error in
+                Task { @MainActor in
+                    guard let self else { return }
+                    if let error {
+                        self.logger.error("Couldn't start the audio tap: \(String(describing: error), privacy: .public)")
+                        self.scheduleRetry(ranFor: 0)
+                    } else {
+                        self.logger.info("Listening (process tap)")
+                    }
+                    self.onStateChange?()
+                }
+            }
+            return
+        }
         guard wanted, !engine.isCapturing, !engine.isStarting else { return }
         guard engine.checkPermission() == .granted else {
             logger.notice("Not listening: no Screen & System Audio Recording access")

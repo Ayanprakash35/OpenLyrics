@@ -232,6 +232,12 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             self?.settings.autoColors.toggle()
         })
         submenu.addItem(.separator())
+        for style in Settings.ColorStyle.allCases {
+            submenu.addItem(ActionItem(style.title, checked: settings.colorStyle == style) { [weak self] in
+                self?.settings.colorStyle = style
+            })
+        }
+        submenu.addItem(.separator())
         let current = settings.lyricColors(accents: session.artworkAccents)
         for role in Settings.ColorRole.allCases {
             let color: PaletteColor = switch role {

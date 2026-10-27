@@ -59,6 +59,21 @@ final class Settings: ObservableObject {
         }
     }
 
+    /// How the colors spread over the words.
+    enum ColorStyle: String, CaseIterable, Sendable {
+        /// Each word's box, text and icon in the next of the cover's colors.
+        case perWord
+        /// Every word blends the same gradients.
+        case gradient
+
+        var title: String {
+            switch self {
+            case .perWord: "Each Word Its Own Color"
+            case .gradient: "Blend Colors Within Words"
+            }
+        }
+    }
+
     /// Which lyric color a custom color replaces.
     enum ColorRole: String, CaseIterable, Sendable {
         case lyric, highlight, secondary
@@ -90,6 +105,7 @@ final class Settings: ObservableObject {
     @Published var showTrackName: Bool { didSet { defaults.set(showTrackName, forKey: Key.showTrackName) } }
     /// Colors from the album artwork; off uses `customColors`.
     @Published var autoColors: Bool { didSet { defaults.set(autoColors, forKey: Key.autoColors) } }
+    @Published var colorStyle: ColorStyle { didSet { defaults.set(colorStyle.rawValue, forKey: Key.colorStyle) } }
     @Published var customColors: LyricColors {
         didSet {
             defaults.set(customColors.lyric.hex, forKey: Key.lyricColor)
@@ -133,6 +149,7 @@ final class Settings: ObservableObject {
         beatBounce = defaults.bool(forKey: Key.beatBounce)
         showTrackName = defaults.bool(forKey: Key.showTrackName)
         autoColors = defaults.bool(forKey: Key.autoColors)
+        colorStyle = defaults.string(forKey: Key.colorStyle).flatMap(ColorStyle.init) ?? .perWord
         let standard = LyricColors.standard
         customColors = LyricColors(
             lyric: defaults.string(forKey: Key.lyricColor).flatMap(PaletteColor.init(hex:)) ?? standard.lyric,
@@ -152,7 +169,9 @@ final class Settings: ObservableObject {
 
     /// The colors to draw with: from the album when `autoColors`, else the custom ones.
     func lyricColors(accents: [PaletteColor]) -> LyricColors {
-        autoColors ? LyricColors.fromArtwork(accents: accents) : customColors
+        var colors = autoColors ? LyricColors.fromArtwork(accents: accents) : customColors
+        colors.perWord = colorStyle == .perWord
+        return colors
     }
 
     /// Picking a color turns Auto Sync off and keeps the other two colors as they look now.
@@ -191,6 +210,7 @@ final class Settings: ObservableObject {
         static let beatBounce = "beatBounce"
         static let showTrackName = "showTrackName"
         static let autoColors = "autoColors"
+        static let colorStyle = "colorStyle"
         static let lyricColor = "lyricColor"
         static let highlightColor = "highlightColor"
         static let secondaryColor = "secondaryColor"

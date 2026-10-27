@@ -71,7 +71,9 @@ enum Diagnostics {
             try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: file)
             print(file.path)
         }
-        let colors = LyricColors.fromArtwork(accents: demoAccents)
+        var colors = LyricColors.fromArtwork(accents: demoAccents)
+        // `--gradient` renders the blended style; otherwise each word gets its own color.
+        colors.perWord = !CommandLine.arguments.contains("--gradient")
         let stackBase = Settings.TextSize.medium.pointSize * 2.2
         let lensBase = Settings.TextSize.medium.pointSize * 1.9
         let entries = LensLayout.entries(in: demoLyrics)

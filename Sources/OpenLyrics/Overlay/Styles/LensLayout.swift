@@ -72,7 +72,8 @@ enum LensLayout {
                 tiltZ: 0,
                 icon: icons ? WordIcons.icon(for: entry.word.text) : nil,
                 iconLeading: seed(6) < 0,
-                age: time - entry.word.start
+                age: time - entry.word.start,
+                colorSlot: position
             )
         }
     }

@@ -86,15 +86,58 @@ struct LyricColors: Equatable, Sendable {
     var secondaryEnd: PaletteColor
     /// Text inside the highlight box.
     var boxedText = PaletteColor(red: 1, green: 0.97, blue: 0.97)
+    /// One solid color set per cover color, for coloring each word differently.
+    var variants: [WordPalette] = []
+    /// Color each word with the next of `variants` instead of blending gradients within words.
+    var perWord = false
+
+    /// The colors of one word when each word gets its own.
+    struct WordPalette: Equatable, Sendable {
+        var lyric: PaletteColor
+        var highlight: PaletteColor
+        var secondary: PaletteColor
+    }
+
+    /// The colors one word is drawn with: both ends of each gradient (equal when solid).
+    struct Resolved: Equatable, Sendable {
+        var lyric: PaletteColor
+        var lyricEnd: PaletteColor
+        var highlight: PaletteColor
+        var highlightEnd: PaletteColor
+        var secondary: PaletteColor
+        var secondaryEnd: PaletteColor
+        var boxedText: PaletteColor
+    }
+
+    /// The colors for the word in color slot `slot`: a solid set from `variants` when `perWord`
+    /// (neighboring slots get different colors), else the shared gradients.
+    func resolved(slot: Int) -> Resolved {
+        if perWord, !variants.isEmpty {
+            let variant = variants[((slot % variants.count) + variants.count) % variants.count]
+            return Resolved(
+                lyric: variant.lyric, lyricEnd: variant.lyric,
+                highlight: variant.highlight, highlightEnd: variant.highlight,
+                secondary: variant.secondary, secondaryEnd: variant.secondary,
+                boxedText: boxedText
+            )
+        }
+        return Resolved(
+            lyric: lyric, lyricEnd: lyricEnd, highlight: highlight, highlightEnd: highlightEnd,
+            secondary: secondary, secondaryEnd: secondaryEnd, boxedText: boxedText
+        )
+    }
 
     init(lyric: PaletteColor, lyricEnd: PaletteColor, highlight: PaletteColor, highlightEnd: PaletteColor,
-         secondary: PaletteColor, secondaryEnd: PaletteColor) {
+         secondary: PaletteColor, secondaryEnd: PaletteColor, variants: [WordPalette] = []) {
         self.lyric = lyric
         self.lyricEnd = lyricEnd
         self.highlight = highlight
         self.highlightEnd = highlightEnd
         self.secondary = secondary
         self.secondaryEnd = secondaryEnd
+        self.variants = variants.isEmpty
+            ? Self.variants(from: [highlight, highlightEnd, Self.neighbor(of: highlightEnd)], tinting: lyric, shading: secondary)
+            : variants
     }
 
     /// One color per role, each spread into a gentle gradient of neighboring shades.
@@ -102,8 +145,23 @@ struct LyricColors: Equatable, Sendable {
         self.init(
             lyric: lyric, lyricEnd: Self.neighbor(of: lyric),
             highlight: highlight, highlightEnd: Self.neighbor(of: highlight),
-            secondary: secondary, secondaryEnd: Self.neighbor(of: secondary)
+            secondary: secondary, secondaryEnd: Self.neighbor(of: secondary),
+            variants: [-0.08, 0, 0.08].map { shift in
+                WordPalette(
+                    lyric: Self.hueShifted(lyric, by: shift),
+                    highlight: Self.hueShifted(highlight, by: shift),
+                    secondary: Self.hueShifted(secondary, by: shift)
+                )
+            }
         )
+    }
+
+    /// Word color sets from highlight colors, each with the text and secondary colors moved to its
+    /// hue.
+    private static func variants(from highlights: [PaletteColor], tinting lyric: PaletteColor, shading secondary: PaletteColor) -> [WordPalette] {
+        highlights.map { color in
+            WordPalette(lyric: tint(color), highlight: color, secondary: shade(color))
+        }
     }
 
     /// Before any artwork has been seen, and for colorless covers: coral to peach text, a pink to
@@ -127,10 +185,13 @@ struct LyricColors: Equatable, Sendable {
         guard let lead = colors.first else { return standard }
         let second = colors.count > 1 ? colors[1] : hueShifted(lead, by: 0.07)
         let third = colors.count > 2 ? colors[2] : hueShifted(second, by: 0.05)
+        // Each word in its own cover color: all of them, or the lead and its neighbors.
+        let wordColors = colors.count > 1 ? colors : [lead, second, hueShifted(lead, by: -0.07)]
         return LyricColors(
             lyric: tint(lead), lyricEnd: tint(second),
             highlight: vivid(second), highlightEnd: vivid(lead),
-            secondary: shade(third), secondaryEnd: shade(second)
+            secondary: shade(third), secondaryEnd: shade(second),
+            variants: wordColors.map { WordPalette(lyric: tint($0), highlight: vivid($0), secondary: shade($0)) }
         )
     }
 

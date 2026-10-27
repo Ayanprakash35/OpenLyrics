@@ -22,6 +22,8 @@
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>OpenLyrics reads the current track, its playback position and its artwork from Music or Spotify to show synced lyrics. It never controls playback.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>OpenLyrics listens to your Mac's sound output to move the lyrics with the beat. Nothing is recorded or sent anywhere.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>

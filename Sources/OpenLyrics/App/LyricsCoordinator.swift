@@ -118,6 +118,7 @@ final class LyricsCoordinator {
     func enableMusicReactions() {
         Task { [weak self] in
             guard let self else { return }
+            // A process tap asks for access itself when it first starts.
             let granted = self.reactor.hasAccess ? true : await self.reactor.requestAccess()
             if granted {
                 self.settings.reactToMusic = true

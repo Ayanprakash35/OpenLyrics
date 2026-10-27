@@ -63,12 +63,15 @@ struct WordChip: View {
 
     /// The text gradient's two ends: the lyric gradient, whitening inside the box and dimming to
     /// the secondary gradient as the word fades.
+    /// This word's colors: its own when each word gets one, else the shared gradients.
+    private var own: LyricColors.Resolved { colors.resolved(slot: word.colorSlot) }
+
     private var textStart: PaletteColor {
-        colors.lyric.mixed(with: colors.boxedText, word.boxed).mixed(with: colors.secondary, word.faded)
+        own.lyric.mixed(with: own.boxedText, word.boxed).mixed(with: own.secondary, word.faded)
     }
 
     private var textEnd: PaletteColor {
-        colors.lyricEnd.mixed(with: colors.boxedText, word.boxed * 0.85).mixed(with: colors.secondaryEnd, word.faded)
+        own.lyricEnd.mixed(with: own.boxedText, word.boxed * 0.85).mixed(with: own.secondaryEnd, word.faded)
     }
 
     private var label: some View {
@@ -90,14 +93,15 @@ struct WordChip: View {
             .background {
                 if word.boxed > 0.01 {
                     let dark = PaletteColor(red: 0.08, green: 0.04, blue: 0.08)
+                    let own = self.own
                     ZStack {
                         // Unsung part: the highlight gradient, a little darker.
                         LinearGradient(
-                            colors: [colors.highlight.mixed(with: dark, 0.16).color, colors.highlightEnd.mixed(with: dark, 0.16).color],
+                            colors: [own.highlight.mixed(with: dark, 0.16).color, own.highlightEnd.mixed(with: dark, 0.16).color],
                             startPoint: .leading, endPoint: .trailing
                         )
                         // Sung part: the full gradient, sweeping left to right.
-                        LinearGradient(colors: [colors.highlight.color, colors.highlightEnd.color], startPoint: .leading, endPoint: .trailing)
+                        LinearGradient(colors: [own.highlight.color, own.highlightEnd.color], startPoint: .leading, endPoint: .trailing)
                             .mask(fillMask)
                     }
                     .brightness(0.07 * beat.pulse)
@@ -122,7 +126,7 @@ struct WordChip: View {
 
     private func iconView(_ icon: WordIcon) -> some View {
         WordIconView(icon: icon, size: size * 0.8, age: word.age,
-                     gradient: [colors.highlight.color, colors.highlightEnd.color], beat: beat)
+                     gradient: [own.highlight.color, own.highlightEnd.color], beat: beat)
     }
 }
 
