@@ -109,7 +109,7 @@ final class LyricsCoordinator {
     func stop() {
         monitor.stop()
         tracker.stop()
-        reactor.setWanted(false)
+        reactor.shutdown()
         screenAwake.setHeld(false)
     }
 

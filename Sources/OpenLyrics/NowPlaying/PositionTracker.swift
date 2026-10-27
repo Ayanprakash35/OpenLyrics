@@ -81,10 +81,16 @@ final class PositionTracker {
             }
         }
         guard generation == self.generation, let target else { return }
-        guard case .sample(let sample) = result else { return }
+        guard case .sample(let sample) = result else {
+            logger.debug("Position query: \(result == .idle ? "idle" : "unavailable", privacy: .public)")
+            return
+        }
         // A sample for a different track means the player moved on before its notification
         // arrived; the monitor will report the new track, and following it resets the clock.
-        if !target.trackID.isEmpty, !sample.trackID.isEmpty, sample.trackID != target.trackID { return }
+        if !target.trackID.isEmpty, !sample.trackID.isEmpty, sample.trackID != target.trackID {
+            logger.debug("Position sample for another track (\(sample.trackID, privacy: .private) ≠ \(target.trackID, privacy: .private)); ignored")
+            return
+        }
         // The runner times the script itself; without that, the midpoint of the whole round trip.
         let measured = sample.measuredAt > 0 ? sample.measuredAt : (started + now()) / 2
         if var running = clock {
@@ -95,6 +101,7 @@ final class PositionTracker {
             clock = running
         } else {
             clock = PlaybackClock(sample: sample, at: measured)
+            logger.debug("Clock started at \(String(format: "%.1f", sample.position), privacy: .public) s")
         }
         if let clock { onClockChange?(clock) }
     }

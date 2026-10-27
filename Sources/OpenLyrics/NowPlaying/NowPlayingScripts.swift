@@ -13,6 +13,9 @@ enum NowPlayingScriptConfig {
     /// Seconds a playback-position query waits. It runs every second or two while lyrics show, so
     /// a hung player must give up quickly. Sane range: 1–3.
     static let positionTimeout = 2
+    /// Seconds the privacy check before a player's first query may take. It normally answers in
+    /// milliseconds; it has been seen to hang. Sane range: 0.5–3.
+    static let permissionTimeout: TimeInterval = 1.5
 }
 
 extension NowPlayingMonitor {
@@ -361,6 +364,9 @@ final class NowPlayingScriptRunner: NowPlayingQuerying, @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.openlyrics.nowplaying.applescript", qos: .utility, autoreleaseFrequency: .workItem)
     /// Compiled on first use. Only touched on `queue`.
     private var compiled: [NowPlayingScript: NSAppleScript] = [:]
+    /// Players that answered a query, so access is known to be granted: their queries skip the
+    /// privacy check. Cleared for a player that refuses (-1743). Only touched on `queue`.
+    private var granted: Set<Player> = []
 
     private enum Outcome {
         case reply(NSAppleEventDescriptor)
@@ -427,21 +433,50 @@ final class NowPlayingScriptRunner: NowPlayingQuerying, @unchecked Sendable {
     /// Why a query to `player` must not be sent, decided without sending the player anything:
     /// AEDeterminePermissionToAutomateTarget asks the privacy database, and with
     /// `askUserIfNeeded` false it never shows the prompt. nil means go ahead.
+    ///
+    /// Once a player has answered, access is known and the check is skipped: queries run every
+    /// second or so, and the check itself has been seen to hang indefinitely — which, on this
+    /// serial queue, stopped every later query. When it is made, it's given `permissionTimeout`;
+    /// no answer counts as undecided.
     private func refusal(for player: Player, mayPrompt: Bool) -> NowPlayingMonitor.QueryResult? {
-        let target = NSAppleEventDescriptor(bundleIdentifier: player.bundleIdentifier)
-        let status = withExtendedLifetime(target) { () -> OSStatus in
-            guard let address = target.aeDesc else { return OSStatus(errAEEventWouldRequireUserConsent) }
-            return AEDeterminePermissionToAutomateTarget(address, typeWildCard, typeWildCard, false)
-        }
-        switch Int(status) {
-        case Int(noErr): return nil
+        if granted.contains(player) { return nil }
+        let status = Self.permission(for: player, timeout: NowPlayingScriptConfig.permissionTimeout)
+        switch status.map(Int.init) {
+        case Int(noErr):
+            granted.insert(player)
+            return nil
         case errAEEventNotPermitted: return .notAuthorized
         case procNotFound: return .notRunning
+        case nil:
+            // The privacy service is stuck. Send the query anyway: it has its own timeout, and the
+            // player's reply (or a -1743 refusal) settles whether access is granted.
+            logger.notice("\(player.displayName, privacy: .public) permission check didn't answer in time; querying anyway")
+            return nil
         default:
             // Undecided (errAEEventWouldRequireUserConsent), or an answer this code doesn't know:
             // only a query allowed to prompt goes ahead, and the player's own reply then decides.
             return mayPrompt ? nil : .consentRequired
         }
+    }
+
+    /// AEDeterminePermissionToAutomateTarget, on a thread of its own so a hang can't hold the
+    /// caller longer than `timeout`; nil when it didn't answer. (A hung check keeps its thread;
+    /// the queue carries on.)
+    private static func permission(for player: Player, timeout: TimeInterval) -> OSStatus? {
+        let result = OSAllocatedUnfairLock<OSStatus?>(initialState: nil)
+        let done = DispatchSemaphore(value: 0)
+        let bundleIdentifier = player.bundleIdentifier
+        DispatchQueue.global(qos: .utility).async {
+            let target = NSAppleEventDescriptor(bundleIdentifier: bundleIdentifier)
+            let status = withExtendedLifetime(target) { () -> OSStatus in
+                guard let address = target.aeDesc else { return OSStatus(errAEEventWouldRequireUserConsent) }
+                return AEDeterminePermissionToAutomateTarget(address, typeWildCard, typeWildCard, false)
+            }
+            result.withLock { $0 = status }
+            done.signal()
+        }
+        guard done.wait(timeout: .now() + timeout) == .success else { return nil }
+        return result.withLock { $0 }
     }
 
     private func run(_ script: NowPlayingScript) -> Outcome {
@@ -455,7 +490,12 @@ final class NowPlayingScriptRunner: NowPlayingQuerying, @unchecked Sendable {
         let reply = appleScript.executeAndReturnError(&errorInfo)
         // On failure the reply is nil despite the non-optional signature: check errorInfo first
         // and don't touch the reply.
-        if let errorInfo { return .error(Self.errorCode(errorInfo)) }
+        if let errorInfo {
+            let code = Self.errorCode(errorInfo)
+            if code == errAEEventNotPermitted { granted.remove(script.player) }
+            return .error(code)
+        }
+        granted.insert(script.player)
         return .reply(reply)
     }
 

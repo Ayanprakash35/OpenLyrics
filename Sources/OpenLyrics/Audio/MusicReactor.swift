@@ -69,6 +69,16 @@ final class MusicReactor {
         }
     }
 
+    /// Stops listening for good, waiting until the audio tap is gone: call when quitting.
+    func shutdown() {
+        wanted = false
+        retryTask?.cancel()
+        if #available(macOS 14.2, *), let tap = tap as? SystemAudioTap { tap.stopAndWait() }
+        engine.stop()
+        detector.stop()
+        logger.info("Stopped listening (quitting)")
+    }
+
     /// Asks macOS for access (shows its prompt the first time). Returns whether access is granted
     /// now; when it isn't, the user has to allow OpenLyrics in System Settings and relaunch it.
     func requestAccess() async -> Bool {

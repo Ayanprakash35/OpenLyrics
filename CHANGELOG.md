@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.1 — 2026-10-27
+
+- **Lyrics stopped showing when macOS's privacy check hung.** Before each query to Music or
+  Spotify, OpenLyrics asked macOS whether it had permission — about once a second. That check can
+  hang indefinitely, and since queries run one at a time, every later one (the play state, the
+  playback position) waited behind it: OpenLyrics never saw the song start, and the lyrics never
+  moved. Now a player that has answered once isn't checked again, the check gets 1.5 seconds,
+  and when it doesn't answer the query goes ahead (a refusal still comes back as one).
+- Quitting — including a logout or `kill` — now removes the audio tap before the app exits.
+
 ## 0.4.0 — 2026-10-27
 
 - **Apple Music no longer stalls when you lock or unlock.** React to the Music used to listen

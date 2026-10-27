@@ -103,6 +103,22 @@ final class SystemAudioTap: @unchecked Sendable {
         }
     }
 
+    /// Stops and destroys the tap before returning (up to `timeout`), for quitting: the process
+    /// must not exit with the tap still registered, or Core Audio can keep it running.
+    func stopAndWait(timeout: TimeInterval = 1) {
+        state.withLock { $0 = .idle }
+        let done = DispatchSemaphore(value: 0)
+        queue.async { [self] in
+            if let listener = deviceListener {
+                Self.removeDeviceListener(listener)
+                deviceListener = nil
+            }
+            teardown()
+            done.signal()
+        }
+        _ = done.wait(timeout: .now() + timeout)
+    }
+
     // MARK: - Building and tearing down (on `queue`)
 
     private func build() throws(TapError) {
