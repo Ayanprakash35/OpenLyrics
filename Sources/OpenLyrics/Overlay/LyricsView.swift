@@ -39,6 +39,9 @@ struct LyricsOverlayView: View {
     var body: some View {
         if isVisible {
             frames
+        } else {
+            // Nothing to draw, but still the window's full size.
+            Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 

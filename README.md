@@ -1,77 +1,96 @@
+<div align="center">
+
 # OpenLyrics
 
-Word-by-word synced lyrics for whatever you're playing in **Apple Music** or **Spotify** — floating
-over your desktop, and on your Mac's **lock screen**.
+**Word-by-word lyrics that move with your music — on your Mac's lock screen and desktop.**
 
-### [⬇ Download OpenLyrics for Mac](https://github.com/Ayanprakash35/OpenLyrics/releases/latest/download/OpenLyrics.dmg)
+For Apple Music and Spotify. Kinetic typography in your album's colors, with icons for the words
+that have one. Free, open, no account.
 
-![Stack style: the sung word in its highlight box, the word before it big above, a light-bulb icon beside "lights"](docs/images/stack.png)
+[![Release](https://img.shields.io/github/v/release/Ayanprakash35/OpenLyrics?label=release)](https://github.com/Ayanprakash35/OpenLyrics/releases/latest)
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black)
+![Swift 6](https://img.shields.io/badge/Swift-6-orange)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-![Lens style: the song's words on a curved column, the sung word largest and boxed in the middle](docs/images/lens.png)
+### [⬇ Download OpenLyrics](https://github.com/Ayanprakash35/OpenLyrics/releases/latest/download/OpenLyrics.dmg)
 
-OpenLyrics is an open recreation of the idea behind Verci: it watches what's playing, finds
-time-synced lyrics, and sets them in motion word by word — kinetic typography in the album
-artwork's colors, with icons for the words that have one. It lives in the menu bar, never takes
-clicks away from what's underneath, and needs no account.
+<!-- DEMO VIDEO: on github.com, edit this file and drag the .mp4 right here — GitHub uploads it and
+     inserts a player link. See docs/media/README.md for the recordings planned. -->
 
-The now-playing detection and album-color extraction come from
-[Open Glow](https://github.com/Ayanprakash35/Open-glow).
+<img src="docs/images/stack-per-word.png" alt="Stack style: the word being sung in a green box, the word before it big above in teal, icons beside them" width="720">
 
-## Features
+</div>
 
-- **Three styles.**
-  - **Stack** — words pile into a wall that drifts in 3D. The word being sung sits at the bottom in
-    a highlight box that fills as it's sung; when the next word starts, the wall springs up a row,
-    the sung word grows into the big middle slot, and older words shrink, dim and drift away.
-  - **Lens** — the song's words on a curved column under a lens; the sung word rolls to the middle,
-    closest to the glass.
-  - **Lines** — one line at a time, filling word by word, with the next line underneath.
-- **Word icons.** Over 1,000 everyday lyric words — you, me, love, call, wait, rain, fire, dance,
-  night, money, angels, pizza… — and their plural, -ing and -ed forms get an SF Symbol in the
-  highlight color, or an emoji where no symbol fits. It pops in beside the word and keeps moving:
-  bouncing, pulsing, wiggling, spinning. About a third of the words in a typical song have one.
-- **Gradients from the album.** Up to four colors are pulled from the cover: the lyrics run from a
-  tint of one to another, the highlight box between two vivid ones, secondary text in a deep shade
-  of a third — a green and blue cover gives green-to-blue words in a blue-to-green box. Or pick the
-  three colors yourself.
-- **Bounces to the beat.** Every sung word gives the words a small swell and hop — a line's first
-  word and held notes a little more — so they move with the singing without listening to
-  anything. With **React to the Music** on, the beat of your Mac's sound adds in.
-- **On the lock screen.** Lyrics keep going after you lock your Mac, and the display stays awake
-  while they show (optional).
-- **Light on battery.** 60 fps only around word changes, 30 otherwise, nothing while paused or
-  hidden.
-- **Two lyrics sources, asked at once:** [LRCLIB](https://lrclib.net) (open, line-synced) and
-  NetEase Cloud Music (large catalog, often word-synced). The best match wins — by title, artist
-  and track length — and every answer is cached, so replays work offline.
-- **Timing nudges** (`⌘]` / `⌘[` in the menu) for lyrics that run early or late.
-- **Out of the way:** click-through, on every Space, alongside full-screen apps, hidden while
+---
+
+## Contents
+
+- [What it does](#what-it-does)
+- [Styles](#styles)
+- [Colors](#colors)
+- [Install](#install)
+- [Using OpenLyrics](#using-openlyrics)
+- [Troubleshooting](#troubleshooting)
+- [How it works](#how-it-works)
+- [Privacy](#privacy)
+- [Building from source](#building-from-source)
+- [Credits](#credits)
+
+## What it does
+
+OpenLyrics sits in your menu bar and watches what Apple Music or Spotify is playing. It finds the
+song's time-synced lyrics and sets them in motion one word at a time: the word being sung lands in
+a highlight box that fills as it's sung, the words before it rise, shrink and fade, and everyday
+words — *you, love, call, rain, fire, night, angels, pizza…* — get a little animated icon. The
+colors come from the album cover, and everything bounces gently on the beat.
+
+It's at its best on the **lock screen**: lock your Mac with music playing and the lyrics keep going
+over your wallpaper, with the display kept awake until the song's done.
+
+- **Three styles** — Stack, Lens and Lines.
+- **Over 1,000 icon words** — SF Symbols in the album's colors, plus emoji where no symbol fits.
+- **Colors from the cover** — every word its own color, or blended gradients; or pick your own.
+- **Bounces to the beat** — from the singing's timing, or from your Mac's sound output.
+- **Fast, accurate lyrics** — word-timed where available, cached for offline replays.
+- **Out of the way** — click-through, on every Space, alongside full-screen apps, hidden while
   paused, nothing in the Dock.
 
-## Requirements
+<!-- SCREENSHOTS: add lock-screen photos here, one per song, e.g.
+     <img src="docs/media/screenshots/<song>-lockscreen.png" width="360"> -->
 
-- macOS 14 Sonoma or later (developed on macOS 26)
-- Apple Music or Spotify (the desktop app)
+## Styles
+
+| Stack | Lens | Lines |
+| :---: | :---: | :---: |
+| <img src="docs/images/stack-per-word-2.png" width="260"> | <img src="docs/images/lens.png" width="260"> | *one line at a time* |
+| Words pile into a wall that drifts in 3D. The sung word sits in its box at the bottom; when the next word starts, the wall springs up a row. | The song's words on a curved column under a lens. The word being sung rolls to the middle, closest to the glass. | The classic look: a line fills word by word, with the next line underneath. |
+
+<!-- STYLE VIDEOS: a short clip of each style, e.g. docs/media/stack.mp4, lens.mp4, lines.mp4 -->
+
+## Colors
+
+With **Auto Sync with Album** on, OpenLyrics reads up to four distinct colors from the cover art:
+a green and blue cover gives green and blue lyrics. Two ways to use them:
+
+| Each Word Its Own Color (default) | Blend Colors Within Words |
+| :---: | :---: |
+| <img src="docs/images/stack-per-word.png" width="340"> | <img src="docs/images/stack-blended.png" width="340"> |
+| Every word's box, text and icon takes the next of the cover's colors. | Every word blends the same gradients: text from one cover color to another, the box from a third. |
+
+Or turn Auto Sync off and pick the **Lyric Text**, **Highlight** and **Secondary Text** colors
+yourself.
 
 ## Install
 
-**1. Download** — [**OpenLyrics.dmg**](https://github.com/Ayanprakash35/OpenLyrics/releases/latest/download/OpenLyrics.dmg)
+**1. Download** — [**OpenLyrics.dmg**](https://github.com/Ayanprakash35/OpenLyrics/releases/latest/download/OpenLyrics.dmg),
+open it and drag **OpenLyrics** onto **Applications**.
 
-**2. Install** — open the downloaded file and drag **OpenLyrics** onto **Applications**.
-
-**3. Approve it (first time only)** — OpenLyrics isn't from the App Store, so macOS blocks it the
-first time:
-
-- Open **OpenLyrics** from Applications. macOS says *"OpenLyrics" Not Opened* — click **Done**.
-- Open **System Settings › Privacy & Security** and scroll down to **Security**.
-- Next to *"OpenLyrics" was blocked*, click **Open Anyway**, then **Open Anyway** again.
-
-**4. Allow access to your player** — play a song. macOS asks whether OpenLyrics may access Music
-(or Spotify): click **OK**. OpenLyrics only reads the track, its position and its artwork; it never
-controls playback.
+**2. Approve it (first time only)** — OpenLyrics isn't from the App Store, so macOS blocks it the
+first time. Open it from Applications, click **Done** when macOS says it was blocked, then go to
+**System Settings › Privacy & Security**, scroll to **Security** and click **Open Anyway**.
 
 <details>
-<summary>Comfortable with Terminal? Step 3 in one line</summary>
+<summary>Comfortable with Terminal? Step 2 in one line</summary>
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/OpenLyrics.app
@@ -79,77 +98,84 @@ xattr -dr com.apple.quarantine /Applications/OpenLyrics.app
 
 </details>
 
-**Updating:** download the new version and replace the app in Applications. Older versions are on
-the [Releases](https://github.com/Ayanprakash35/OpenLyrics/releases) page.
+**3. Allow access to your player** — play a song. macOS asks whether OpenLyrics may access Music
+or Spotify: click **OK**. OpenLyrics only reads the track, its position and its artwork; it never
+controls playback.
 
-### Build it yourself
+**4. Lock your Mac** with the music playing.
 
-```bash
-git clone https://github.com/Ayanprakash35/OpenLyrics.git
-cd OpenLyrics
-./Scripts/setup_signing.sh      # once: a local signing identity, so macOS remembers permissions
-./Scripts/build_app.sh          # builds and signs build/OpenLyrics.app
-open build/OpenLyrics.app
-./Scripts/test.sh               # the test suite
-```
+**Updating:** download the new version and replace the app. Older versions are on the
+[Releases](https://github.com/Ayanprakash35/OpenLyrics/releases) page.
 
-Works with the Command Line Tools alone; Xcode isn't needed.
+Requires macOS 14 or later (14.2 or later for React to the Music without a screen recording), and
+the Apple Music or Spotify desktop app.
 
 ## Using OpenLyrics
 
-Everything is in the menu-bar menu (the speech-bubble icon):
+Everything lives in the menu-bar menu (the speech-bubble icon). At the top, a card shows the song
+and whether lyrics were found.
+
+<img src="docs/images/menu-card.png" alt="The menu's now-playing card" width="290">
+
+**Look**
 
 | Item | What it does |
 | --- | --- |
-| Track, artist and status | What's playing and where its lyrics came from |
 | Style | Stack, Lens or Lines |
-| Show Icons | Icons beside the words that have one |
-| Bounce to the Beat | A small swell and hop on each sung word |
-| React to the Music | Words and icons move with the beat (asks for audio access) |
-| Colors | Auto Sync with Album, or your own Lyric Text, Highlight and Secondary Text colors |
+| Colors | Auto Sync with Album; each word its own color or blended; or your own three colors |
 | Text Size | Small, Medium, Large, Huge |
-| Show Next Line | The upcoming line, smaller, underneath (Lines style) |
-| Show Track Name on Lock Screen | A small, faint title line above the lyrics (off by default) |
-| Show on Desktop / Lock Screen | Where lyrics appear |
-| Position | Top, center or bottom of the screen (desktop) |
-| Display | Which screen lyrics show on |
-| Keep Display Awake on Lock Screen | Stops the locked screen from going dark mid-song |
-| Timing | Show lyrics sooner (`⌘]`) or later (`⌘[`) in quarter seconds |
+| Show Icons | Icons beside the words that have one |
+| Bounce to the Beat | A small swell and hop on each sung word — harder on a line's first word and held notes |
+| React to the Music | Also bounce to the beat of your Mac's sound (asks for System Audio Recording access) |
+
+**Where**
+
+| Item | What it does |
+| --- | --- |
+| Lock Screen / Desktop | Where lyrics appear |
+| Position on Desktop | Top, center or bottom |
+| Display | Which screen |
+| Track Name on Lock Screen | A small, faint title above the lyrics (off by default) |
+| Keep Display Awake on Lock Screen | Stops the locked screen going dark mid-song |
+
+**Lyrics**
+
+| Item | What it does |
+| --- | --- |
+| Timing | Show lyrics sooner (`⌘]`) or later (`⌘[`), in quarter seconds |
 | Reload Lyrics (`⌘R`) | Look the song up again, skipping the cache |
-| Preview Lock-Screen Layout | Shows the lock-screen look on the desktop for a few seconds |
-| Lyrics Sources / Players | Turn LRCLIB, NetEase, Music or Spotify off |
-| Open at Login | Start with your Mac |
+| Preview Lock Screen | Shows the lock-screen layout on the desktop for a few seconds |
+| Sources / Players | Turn LRCLIB, NetEase, Music or Spotify off |
 
 ## Troubleshooting
 
-**No lyrics appear.** Check the status line in the menu:
+**No lyrics appear.** The card's status line says why:
 
-- *No access to Music/Spotify* — open **System Settings › Privacy & Security › Automation**, turn
-  on your player under OpenLyrics, then choose **Try Again**.
-- *No lyrics found* — neither source has synced lyrics for this recording. Live and alternate
+- *No access to Music/Spotify* — choose **Allow Access in System Settings…**, turn on your player
+  under OpenLyrics in **Automation**, then **Try Again**.
+- *No lyrics found* — neither source has synced lyrics for this recording; live and alternate
   versions often don't.
-- *Couldn't reach any lyrics service* — OpenLyrics retries every 30 seconds. Some networks block
-  `lrclib.net`; NetEase usually still works.
-
-**Apple Music pauses for a moment when you lock or unlock.** That happens whenever an app is
-recording the screen or the Mac's sound (the purple indicator in the menu bar): Apple Music
-re-checks its copy protection each time that recording stops at lock and starts again at unlock.
-OpenLyrics only records anything with **React to the Music** on; turn that off, or quit the other
-app that's recording, and the stutter goes away.
+- *Lyrics services unreachable* — OpenLyrics retries every 30 seconds. Some networks block
+  `lrclib.net`; NetEase usually still works, and OpenLyrics stops waiting for a blocked source.
 
 **Lyrics run early or late.** Use **Timing › Show Lyrics Sooner / Later**. The offset stays until
 you reset it.
 
-**Nothing on the lock screen.** Lock-screen display uses a private macOS window-server feature; if
-a macOS update removes it, the menu says *Show on Lock Screen (unavailable)* and the desktop overlay
-keeps working. If lyrics don't appear above the lock screen on your Mac, try a higher level and
+**Apple Music pauses for a moment when I lock or unlock.** Apple Music does that whenever an app
+is *recording the screen*: it re-checks its copy protection as the recording stops at lock and
+starts at unlock. OpenLyrics never records the screen — React to the Music uses a Core Audio
+process tap, which isn't a screen recording (on macOS 14.2 and later). If it still happens, look
+for another app recording the screen: the purple indicator in the menu bar, or **System Settings ›
+Privacy & Security › Screen & System Audio Recording**.
+
+**Nothing on the lock screen.** The lock-screen overlay uses a private macOS window-server
+feature. If a macOS update removes it, the menu says *Lock Screen (unavailable)* and the desktop
+overlay keeps working. If lyrics don't appear above your lock screen, try a higher level and
 relaunch:
 
 ```bash
 defaults write com.openlyrics.app lockScreenSpaceLevel -int 500
 ```
-
-(`defaults delete com.openlyrics.app lockScreenSpaceLevel` goes back to the default.)
 
 **Check the lyrics sources from Terminal** — prints what each source finds, never the lyrics:
 
@@ -165,34 +191,63 @@ log stream --level info --predicate 'subsystem == "com.openlyrics.app"'
 
 ## How it works
 
-1. **What's playing.** Music and Spotify post a notification whenever playback changes;
-   OpenLyrics listens, and asks the player over AppleScript for the track, its artwork, and — every
-   1¼ seconds while playing — the playback position and track length. A clock carries the position
-   forward smoothly between samples, so the fill moves at 60 fps rather than jumping each second;
-   small disagreements are eased out and seeks snap.
-2. **Finding lyrics.** LRCLIB and NetEase are asked in parallel. Search results are matched to the
-   track by title (with "Remastered", "Radio Edit", "feat." and similar removed), artist and
-   length — recordings more than 12 seconds apart are rejected, since their timing wouldn't line
-   up. NetEase's word-timed format is used when available; otherwise LRC line timing, with each
-   word's timing estimated from its length.
-3. **Drawing.** A borderless, transparent, click-through window per surface hosts a SwiftUI view.
-   Each style is a pure function from the song's timing and the playback position to word
-   positions, sizes, tilts and colors, so every frame is computed from scratch with no animation
-   state: the stack's rise is a spring eased from each word's start time, the lens a drum the
-   column rolls along. Words are laid out once at their largest size and scaled on the GPU, and
-   frames come at 60 fps only around word changes.
-4. **The lock screen.** macOS has no public way to draw over the lock screen. Its window server,
-   SkyLight, stacks *spaces* by an absolute level, and the lock screen sits at level 300.
-   OpenLyrics creates its own space at level 400 — where macOS shows notifications over the lock
-   screen — and moves its lock-screen window onto it. The SkyLight calls are looked up at runtime,
-   so if they ever disappear the app carries on without the lock-screen feature.
+1. **What's playing.** Music and Spotify announce playback changes; OpenLyrics listens, and asks
+   the player over AppleScript for the track, its artwork, and — every 1¼ seconds while playing —
+   the position and length. A clock carries the position forward smoothly between samples.
+2. **Finding lyrics.** LRCLIB and NetEase are asked at once, and the lookup ends as soon as a
+   word-timed exact match arrives (or 1.5 s after any synced one). Results are matched by title —
+   with "Remastered", "Radio Edit" and the like removed — artist and length, then cached.
+3. **Colors.** The cover is shrunk, converted to CIELAB and clustered; distinct, vivid color
+   families become the palette.
+4. **Drawing.** A transparent, click-through window per surface hosts SwiftUI views. Each style
+   is a pure function from the song's timing and the playback position to every word's place,
+   size, tilt and color — so any frame can be computed (and tested) on its own. Frames come at
+   60 fps around word changes and 30 otherwise; nothing draws while hidden or paused.
+5. **The lock screen.** macOS's window server stacks *spaces* by level, and the lock screen sits
+   at level 300. OpenLyrics creates a space at level 400 — where notifications show over the lock
+   screen — and moves its lock-screen window there.
+6. **The beat.** Each sung word is a hit; with React to the Music, a Core Audio tap feeds an onset
+   detector (from Open Glow) that finds kicks and snares in the Mac's sound.
+
+```
+Sources/OpenLyrics/
+  App/          menu, settings, coordinator, diagnostics
+  NowPlaying/   player monitoring, AppleScript, playback clock
+  Lyrics/       LRC/YRC parsing, providers, matching, cache
+  Overlay/      windows, lock-screen space, styles (Stack, Lens, Lines), icons, colors
+  Audio/        process tap, beat detection
+  Support/      color extraction, session monitoring, display sleep
+```
 
 ## Privacy
 
-OpenLyrics sends the track's title, artist, album and length to the lyrics sources you have turned
-on, and nothing else. With React to the Music on, it analyzes your Mac's sound output on the Mac
-itself; nothing is recorded or sent anywhere. No accounts, analytics or tracking. Lyrics are cached in
-`~/Library/Caches/com.openlyrics.app` (menu › Clear Lyrics Cache empties it).
+OpenLyrics sends a track's title, artist, album and length to the lyrics sources you have turned
+on — nothing else leaves your Mac. No accounts, analytics or tracking. With React to the Music
+on, the Mac's sound is analyzed on the Mac and never recorded or sent; the microphone is never
+used. Lyrics are cached in `~/Library/Caches/com.openlyrics.app` (**Clear Lyrics Cache** empties
+it).
+
+## Building from source
+
+```bash
+git clone https://github.com/Ayanprakash35/OpenLyrics.git
+cd OpenLyrics
+./Scripts/setup_signing.sh      # once: a local signing identity, so macOS remembers permissions
+./Scripts/build_app.sh          # builds and signs build/OpenLyrics.app
+open build/OpenLyrics.app
+./Scripts/test.sh               # the test suite
+```
+
+Works with the Command Line Tools alone. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
+diagnostics flags (`--snapshot`, `--lookup`, `--demo`) and the ground rules.
+
+## Credits
+
+- Inspired by [Verci](https://verci.xyz).
+- Now-playing detection, album colors and beat detection come from
+  [Open Glow](https://github.com/Ayanprakash35/Open-glow).
+- Lyrics from [LRCLIB](https://lrclib.net) and NetEase Cloud Music.
+- Icons are Apple's SF Symbols and emoji.
 
 ## License
 

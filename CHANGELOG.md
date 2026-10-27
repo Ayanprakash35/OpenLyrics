@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.0 — 2026-10-27
+
+- **Apple Music no longer stalls when you lock or unlock.** React to the Music used to listen
+  through ScreenCaptureKit, which macOS counts as recording the screen, and Apple Music re-checks
+  its copy protection — pausing for a moment — every time a screen recording stops (at lock) and
+  starts (at unlock). It now listens through a Core Audio process tap, which isn't a screen
+  recording, on macOS 14.2 and later. macOS asks once for System Audio Recording access.
+- **Lyrics were not showing.** In 0.2.0 and later, a hidden overlay drew nothing, and SwiftUI then
+  shrank its window to nothing; showing it again restored the window but not the view inside, so
+  lyrics could stay invisible. The overlay windows now always keep their screen's size.
+- **Each Word Its Own Color** (new default): every word's box, text and icon takes the next of the
+  cover's colors. **Blend Colors Within Words** keeps the gradients. Both in Colors.
+- **Redesigned menu**: a now-playing card with the album cover, title, artist and a status dot;
+  settings grouped under Look, Where and Lyrics, each with an icon; color swatches showing the
+  album colors.
+- README, contributing guide, issue and pull-request templates, and room for demo videos and
+  screenshots (`docs/media`).
+
 ## 0.3.0 — 2026-10-27
 
 - **Gradients from the album cover.** Up to four distinct colors are read from the artwork (they

@@ -42,6 +42,9 @@ final class OverlayWindow {
             isVisible: false
         ))
         hosting.isHidden = true
+        // The window is sized to its screen and stays that way: without this, the hosting view
+        // shrinks the window to fit its content — to nothing while the overlay is hidden.
+        hosting.sizingOptions = []
         // With `screen:` given, AppKit adds the screen's origin to contentRect itself.
         window = NSWindow(
             contentRect: NSRect(origin: .zero, size: screen.frame.size),
