@@ -255,8 +255,10 @@ final class LyricsCoordinator {
         guard let data else {
             session.palette = .fallback
             session.accents = []
+            session.artwork = nil
             return
         }
+        session.artwork = NSImage(data: data)
         Task { [weak self] in
             let result = await Task.detached(priority: .utility) { ColorExtractor.extract(fromImageData: data) }.value
             guard let self, self.session.track?.identity == track.identity else { return }

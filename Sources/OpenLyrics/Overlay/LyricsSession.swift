@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 /// Everything the overlay shows, in one observable place: the track, its lyrics, where playback is,
 /// and the colors. The coordinator writes it; the SwiftUI views only read it.
@@ -23,6 +23,8 @@ final class LyricsSession: ObservableObject {
     @Published var palette: ArtworkPalette = .fallback
     /// The artwork's distinct colors, leading first (see `ColorExtractor.Result.accents`).
     @Published var accents: [PaletteColor] = []
+    /// The cover itself, for the menu.
+    @Published var artwork: NSImage?
     /// The lyrics' words in order, for the Lens style, built once per lyrics.
     private(set) var lensEntries: [LensLayout.Entry] = []
     private(set) var lensStarts: [TimeInterval] = []
@@ -35,6 +37,7 @@ final class LyricsSession: ObservableObject {
 
     /// Starts over for a new track (or none).
     func begin(_ track: NowPlayingMonitor.Track?) {
+        if track?.identity != self.track?.identity { artwork = nil }
         self.track = track
         clock = nil
         setLyrics(nil)

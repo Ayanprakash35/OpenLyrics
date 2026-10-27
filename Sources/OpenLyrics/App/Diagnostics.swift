@@ -83,6 +83,15 @@ enum Diagnostics {
             save(KineticWordsView(words: words, colors: colors, baseSize: stackBase, time: time, beat: .none, drift: true),
                  width: 1000, height: 440, name: String(format: "stack-%05.2f", time))
         }
+        let card = VStack(spacing: 0) {
+            NowPlayingCard(title: "Word by Word", subtitle: "OpenLyrics Demo", status: "Word by word · NetEase",
+                           tone: .good, artwork: nil, accent: colors.highlight.color)
+            NowPlayingCard(title: "Nothing playing", subtitle: "Open Music or Spotify", status: "Waiting for a player",
+                           tone: .quiet, artwork: nil, accent: colors.highlight.color)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
+        .environment(\.colorScheme, .dark)
+        save(card, width: 290, height: 140, name: "menu-card")
         for time in [2.3, 6.2, 13.6] {
             let words = LensLayout.words(in: entries, starts: starts, at: time, icons: true)
             save(KineticWordsView(words: words, colors: colors, baseSize: lensBase, time: time, beat: .none, drift: false),
