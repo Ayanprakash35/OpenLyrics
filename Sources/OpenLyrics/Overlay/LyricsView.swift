@@ -72,6 +72,7 @@ struct LyricsOverlayView: View {
                 if let caption = shownCaption { TrackCaption(text: caption, size: style.fontSize) }
                 LyricsStage(lyrics: session.lyrics, time: time, style: style, caption: nil)
                     .scaleEffect(1 + 0.018 * beat(at: time).pulse)
+                    .modifier(SceneLayers(events: scenes(at: time), time: time ?? 0, baseSize: style.fontSize * 1.9, colors: colors))
             }
         case .stack, .lens:
             kinetic(time: time)
@@ -112,6 +113,11 @@ struct LyricsOverlayView: View {
             starts = session.lyrics?.lines.map(\.start) ?? []
         }
         let now = Date()
+        // Vehicles, flags and bursts move across the screen: smooth frames until they're done.
+        if let until = scenes(at: time).filter({ SceneView.needsFastFrames($0.kind) }).map(\.end).max() {
+            pace.setFastWindow(from: now, until: now.addingTimeInterval(until - time))
+            return
+        }
         guard let window = FramePace.window(starts: starts, at: time) else {
             pace.setFastWindow(from: .distantFuture, until: .distantPast)
             return
@@ -123,8 +129,14 @@ struct LyricsOverlayView: View {
     @ViewBuilder
     private func kinetic(time: TimeInterval?) -> some View {
         let base = kineticSize
+        let events = scenes(at: time)
+        // A constellation takes over from the word style while it lasts, cross-fading in and out.
+        let constellation = events.first { $0.kind == .constellation }
+        let stars = constellation.flatMap { session.constellations[$0.start] }
+        let takeover = stars == nil ? 0 : (constellation?.envelope(at: time ?? 0) ?? 0)
+        let beat = beat(at: time)
         let words: [PlacedWord] = {
-            guard let time, let lyrics = session.lyrics else { return [] }
+            guard let time, let lyrics = session.lyrics, ConstellationLayout.handoff(takeover).words > 0 else { return [] }
             switch settings.style {
             case .lens: return LensLayout.words(in: session.lensEntries, starts: session.lensStarts, at: time, icons: settings.showIcons)
             default: return StackLayout.words(in: lyrics, at: time, icons: settings.showIcons)
@@ -132,17 +144,33 @@ struct LyricsOverlayView: View {
         }()
         VStack(spacing: base * 0.25) {
             if let caption = shownCaption { TrackCaption(text: caption, size: base) }
-            KineticWordsView(
-                words: words,
-                colors: colors,
-                baseSize: base,
-                time: time ?? 0,
-                beat: beat(at: time),
-                drift: settings.style == .stack
-            )
+            ZStack {
+                KineticWordsView(
+                    words: words,
+                    colors: colors,
+                    baseSize: base,
+                    time: time ?? 0,
+                    beat: beat,
+                    drift: settings.style == .stack
+                )
+                .opacity(ConstellationLayout.handoff(takeover).words)
+                if let stars, let time, ConstellationLayout.handoff(takeover).stars > 0 {
+                    ConstellationView(frame: ConstellationLayout.frame(nodes: stars, at: time), colors: colors,
+                                      baseSize: base, time: time, beat: beat)
+                        .frame(width: base * 16, height: base * 6)
+                        .opacity(ConstellationLayout.handoff(takeover).stars)
+                }
+            }
             .frame(maxWidth: .infinity)
             .frame(height: base * (settings.style == .lens ? 5.4 : 3.8))
+            .modifier(SceneLayers(events: events, time: time ?? 0, baseSize: base, colors: colors))
         }
+    }
+
+    /// The effects running at `time`, when they're on.
+    private func scenes(at time: TimeInterval?) -> [SceneEvent] {
+        guard settings.funEffects, let time else { return [] }
+        return session.sceneScript.active(at: time)
     }
 
     private var colors: LyricColors { settings.lyricColors(accents: session.artworkAccents) }
@@ -187,6 +215,30 @@ struct LyricsOverlayView: View {
             // A little below center: clear of the clock above and the login field below.
             EdgeInsets(top: 160, leading: 60, bottom: 40, trailing: 60)
         }
+    }
+}
+
+/// Puts the effects behind and in front of the lyrics, over an area a little larger than the
+/// words so rain and the like surround them.
+struct SceneLayers: ViewModifier {
+    var events: [SceneEvent]
+    var time: TimeInterval
+    var baseSize: CGFloat
+    var colors: LyricColors
+
+    func body(content: Content) -> some View {
+        if events.isEmpty {
+            content
+        } else {
+            content
+                .background { layer(.behind) }
+                .overlay { layer(.front) }
+        }
+    }
+
+    private func layer(_ layer: SceneView.Layer) -> some View {
+        SceneView(events: events, time: time, baseSize: baseSize, colors: colors, layer: layer)
+            .frame(width: baseSize * SceneConfig.areaWidth, height: baseSize * SceneConfig.areaHeight)
     }
 }
 

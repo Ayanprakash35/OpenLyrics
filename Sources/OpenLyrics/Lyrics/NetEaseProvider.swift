@@ -12,6 +12,8 @@ struct NetEaseProvider: LyricsProvider {
     var baseURL = "https://music.163.com"
     /// Search results considered. Sane range: 5–20.
     var searchLimit = 10
+    /// Matching uploads tried for lyrics, best first. Sane range: 1–6.
+    var candidateLimit = 4
 
     /// The site serves its API to browsers; a browser-like agent and referer avoid odd replies.
     private static let headers = [
@@ -52,8 +54,20 @@ struct NetEaseProvider: LyricsProvider {
         let (searchData, searchStatus) = try await HTTP.get(searchURL, headers: Self.headers)
         guard searchStatus == 200 else { throw .badResponse }
         guard let search = try? JSONDecoder().decode(SearchResponse.self, from: searchData) else { throw .badResponse }
-        guard let (song, confidence) = Self.bestSong(in: search.result?.songs ?? [], for: query) else { return nil }
+        // The catalog often holds the same recording several times, and only some uploads have
+        // lyrics attached: try the best matches in turn until one has synced lyrics.
+        let ranked = Self.rankedSongs(in: search.result?.songs ?? [], for: query).prefix(candidateLimit)
+        var fallback: ProviderMatch?
+        for (song, confidence) in ranked {
+            guard let lyrics = try await lyrics(forSong: song, query: query) else { continue }
+            let match = ProviderMatch(lyrics: lyrics, confidence: confidence)
+            if lyrics.isSynced { return match }
+            if fallback == nil { fallback = match }
+        }
+        return fallback
+    }
 
+    private func lyrics(forSong song: Song, query: TrackQuery) async throws(ProviderError) -> Lyrics? {
         guard let lyricURL = HTTP.url("\(baseURL)/api/song/lyric/v1", [
             ("id", String(song.id)), ("cp", "false"), ("lv", "1"), ("kv", "0"), ("tv", "0"),
             ("rv", "0"), ("yv", "1"), ("ytv", "0"), ("yrv", "0"),
@@ -62,7 +76,20 @@ struct NetEaseProvider: LyricsProvider {
         guard lyricStatus == 200 else { throw .badResponse }
         guard let response = try? JSONDecoder().decode(LyricResponse.self, from: lyricData) else { throw .badResponse }
         let duration = query.duration ?? song.duration.map { $0 / 1000 }
-        return Self.lyrics(from: response, duration: duration).map { ProviderMatch(lyrics: $0, confidence: confidence) }
+        return Self.lyrics(from: response, duration: duration)
+    }
+
+    /// Matching songs, best first.
+    static func rankedSongs(in songs: [Song], for query: TrackQuery) -> [(Song, Double)] {
+        songs.compactMap { song -> (Song, Double)? in
+            let candidate = TrackCandidate(
+                title: song.name ?? "",
+                artists: (song.artists ?? []).compactMap(\.name),
+                duration: song.duration.map { $0 / 1000 }
+            )
+            return TrackMatcher.score(candidate, for: query).map { (song, $0) }
+        }
+        .sorted { $0.1 > $1.1 }
     }
 
     static func bestSong(in songs: [Song], for query: TrackQuery) -> (Song, Double)? {

@@ -49,8 +49,13 @@ enum WordIcons {
     /// The word lowercased and trimmed, then with common endings removed, most specific first.
     static func candidates(for word: String) -> [String] {
         let lowered = word.lowercased().replacingOccurrences(of: "’", with: "'")
-        let base = lowered.trimmingCharacters(in: CharacterSet.letters.inverted)
-        guard base.count >= minimumLength else { return [] }
+        // Letters and the marks attached to them (Devanagari vowel signs, accents written as
+        // combining characters), so trimming punctuation never cuts a word's last mark off.
+        let base = lowered.trimmingCharacters(in: CharacterSet.letters.union(.nonBaseCharacters).inverted)
+        // A single character is a whole word in scripts written without spaces (愛, 夢), and
+        // in Korean (비, 꿈).
+        let singleCharacterWord = base.count == 1 && base.first.map { WordTiming.isSpaceless($0) || isHangul($0) } == true
+        guard base.count >= minimumLength || singleCharacterWord else { return [] }
         var forms = [base]
         func add(_ form: String) {
             if form.count >= minimumStemLength, !forms.contains(form) { forms.append(form) }
@@ -75,6 +80,10 @@ enum WordIcons {
         }
         if base.hasSuffix("d") { add(String(base.dropLast())) }
         return forms
+    }
+
+    private static func isHangul(_ character: Character) -> Bool {
+        character.unicodeScalars.first.map { (0xAC00...0xD7AF).contains($0.value) } ?? false
     }
 
     /// The vocabulary, filtered to symbols this macOS has.

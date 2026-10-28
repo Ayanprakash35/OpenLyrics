@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.5.0 — 2026-10-28
+
+- **Effects.** Words set things off around the lyrics: rain streaking past on *rain* or *storm*,
+  snow, rising embers on *fire*, twinkling stars, hearts, falling bills, a confetti burst on
+  *party*, a lightning flash on *thunder* — with Hindi, Spanish, French and other words too.
+  Each effect waits a while before it can come back.
+- **Vehicles drive by** when one is sung about — cars, trucks, taxis, trains, bikes, planes,
+  helicopters, boats, rockets — including makes and models: a Cadillac or a Mercedes is a car,
+  a Rover, a Range Rover or a Jeep an SUV, a Lambo or a Porsche a race car.
+- **Bridges branch out.** When a song mentions a bridge, the lyrics turn into a constellation for
+  the next few lines: each word becomes a star, joined to the one before it or branching off an
+  earlier one, the sung word large with a glowing ring.
+- **Easter eggs** for particular songs, in any version (live, acoustic, remastered, covers): rain
+  all through *Iris* by the Goo Goo Dolls, a French flag in *Viva la Vida*, and more to find.
+- **Effects & Easter Eggs** in the menu turns all of it off.
+- **Album colors for streamed Apple Music songs.** Music gives no artwork for songs streamed from
+  Apple Music, so their lyrics fell back to the standard colors. The cover now comes from the
+  iTunes catalog when the player has none.
+- **More songs in other languages.** NetEase often lists a song several times with lyrics on only
+  one of the uploads; OpenLyrics now tries the best four matches, so far more Hindi songs are
+  found. Nearly 400 icon words added in romanized Hindi, Devanagari, Spanish, Portuguese, French,
+  Korean, Japanese and Chinese, and single-character words in Chinese and Japanese get icons too.
+
 ## 0.4.1 — 2026-10-27
 
 - **Lyrics stopped showing when macOS's privacy check hung.** Before each query to Music or

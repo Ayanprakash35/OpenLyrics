@@ -252,18 +252,27 @@ final class LyricsCoordinator {
 
     private func handleArtwork(for track: NowPlayingMonitor.Track, data: Data?) {
         guard session.track?.identity == track.identity else { return }
-        guard let data else {
-            session.palette = .fallback
-            session.accents = []
-            session.artwork = nil
-            return
-        }
-        session.artwork = NSImage(data: data)
         Task { [weak self] in
-            let result = await Task.detached(priority: .utility) { ColorExtractor.extract(fromImageData: data) }.value
+            // Music hands scripts no artwork for streamed Apple Music tracks: find the cover in
+            // the iTunes catalog instead.
+            var cover = data
+            if cover == nil, !track.artist.isEmpty {
+                cover = await ArtworkLookup.artwork(artist: track.artist, album: track.album, title: track.title)
+            }
             guard let self, self.session.track?.identity == track.identity else { return }
+            guard let cover else {
+                self.logger.info("No artwork for this track; using the standard colors")
+                self.session.palette = .fallback
+                self.session.accents = []
+                self.session.artwork = nil
+                return
+            }
+            let result = await Task.detached(priority: .utility) { ColorExtractor.extract(fromImageData: cover) }.value
+            guard self.session.track?.identity == track.identity else { return }
+            self.session.artwork = NSImage(data: cover)
             self.session.palette = result?.palette ?? .fallback
             self.session.accents = result?.accents ?? []
+            self.logger.info("Colors from \(data == nil ? "the iTunes catalog" : "the player", privacy: .public): \(result?.accents.count ?? 0, privacy: .public) accents")
         }
     }
 

@@ -146,6 +146,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.addItem(colorsMenu())
         menu.addItem(choice("Text Size", symbol: "textformat.size", Settings.TextSize.allCases, \.textSize, title: \.title))
         menu.addItem(toggle("Show Icons", symbol: "face.smiling", \.showIcons))
+        menu.addItem(toggle("Effects & Easter Eggs", symbol: "sparkles", \.funEffects))
         menu.addItem(toggle("Bounce to the Beat", symbol: "waveform.path", \.beatBounce))
         menu.addItem(reactItem())
         if settings.style == .lines {

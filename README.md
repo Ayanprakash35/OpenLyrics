@@ -28,6 +28,7 @@ that have one. Free, open, no account.
 - [What it does](#what-it-does)
 - [Styles](#styles)
 - [Colors](#colors)
+- [Effects and easter eggs](#effects-and-easter-eggs)
 - [Install](#install)
 - [Using OpenLyrics](#using-openlyrics)
 - [Troubleshooting](#troubleshooting)
@@ -48,9 +49,13 @@ It's at its best on the **lock screen**: lock your Mac with music playing and th
 over your wallpaper, with the display kept awake until the song's done.
 
 - **Three styles** — Stack, Lens and Lines.
-- **Over 1,000 icon words** — SF Symbols in the album's colors, plus emoji where no symbol fits.
+- **Over 1,400 icon words** — SF Symbols in the album's colors, plus emoji where no symbol fits.
 - **Colors from the cover** — every word its own color, or blended gradients; or pick your own.
 - **Bounces to the beat** — from the singing's timing, or from your Mac's sound output.
+- **Effects and easter eggs** — rain when it rains, a car driving by when one's sung about, the
+  lyrics branching into a constellation at a bridge, and surprises for particular songs.
+- **Many languages** — Hindi, Spanish, Korean, Japanese, Chinese and more, with icon words in
+  those languages (romanized Hindi and Devanagari included).
 - **Fast, accurate lyrics** — word-timed where available, cached for offline replays.
 - **Out of the way** — click-through, on every Space, alongside full-screen apps, hidden while
   paused, nothing in the Dock.
@@ -79,6 +84,23 @@ a green and blue cover gives green and blue lyrics. Two ways to use them:
 
 Or turn Auto Sync off and pick the **Lyric Text**, **Highlight** and **Secondary Text** colors
 yourself.
+
+## Effects and easter eggs
+
+Some words set something off around the lyrics:
+
+| Rain, snow, fire… | Cars and other vehicles |
+| :---: | :---: |
+| <img src="docs/images/effect-rain.png" width="340"> | <img src="docs/images/effect-car.png" width="340"> |
+| *rain, storm, snow, fire, stars, hearts, money, party, thunder* — in several languages | *car, truck, train, plane, boat…* and makes and models: a Cadillac, a Rover, a Range Rover, a Lambo |
+
+| A bridge | Easter eggs |
+| :---: | :---: |
+| <img src="docs/images/effect-bridge.png" width="340"> | <img src="docs/images/effect-flag.png" width="340"> |
+| When a song mentions a bridge, the lyrics branch out into a constellation for a few lines: each word a star, joined to the last. | Particular songs get their own touch — it rains all through *Iris*, and a French flag pops up in *Viva la Vida*, in any version. There are a few more to find. |
+
+Effects are spaced out, so a chorus that says "rain" ten times doesn't drizzle nonstop. Turn them
+all off with **Effects & Easter Eggs** in the menu.
 
 ## Install
 
@@ -125,6 +147,7 @@ and whether lyrics were found.
 | Colors | Auto Sync with Album; each word its own color or blended; or your own three colors |
 | Text Size | Small, Medium, Large, Huge |
 | Show Icons | Icons beside the words that have one |
+| Effects & Easter Eggs | Rain, vehicles, the bridge constellation and song easter eggs |
 | Bounce to the Beat | A small swell and hop on each sung word — harder on a line's first word and held notes |
 | React to the Music | Also bounce to the beat of your Mac's sound (asks for System Audio Recording access) |
 
@@ -198,7 +221,8 @@ log stream --level info --predicate 'subsystem == "com.openlyrics.app"'
    word-timed exact match arrives (or 1.5 s after any synced one). Results are matched by title —
    with "Remastered", "Radio Edit" and the like removed — artist and length, then cached.
 3. **Colors.** The cover is shrunk, converted to CIELAB and clustered; distinct, vivid color
-   families become the palette.
+   families become the palette. Apple Music doesn't hand over the artwork of streamed songs, so
+   for those the cover comes from the iTunes catalog.
 4. **Drawing.** A transparent, click-through window per surface hosts SwiftUI views. Each style
    is a pure function from the song's timing and the playback position to every word's place,
    size, tilt and color — so any frame can be computed (and tested) on its own. Frames come at
@@ -206,7 +230,10 @@ log stream --level info --predicate 'subsystem == "com.openlyrics.app"'
 5. **The lock screen.** macOS's window server stacks *spaces* by level, and the lock screen sits
    at level 300. OpenLyrics creates a space at level 400 — where notifications show over the lock
    screen — and moves its lock-screen window there.
-6. **The beat.** Each sung word is a hit; with React to the Music, a Core Audio tap feeds an onset
+6. **Effects.** When lyrics arrive, the song's title, artist and words are turned into a timeline
+   of scenes — weather, vehicles, flags, constellations — each drawn as a pure function of time
+   into a single canvas behind or in front of the words.
+7. **The beat.** Each sung word is a hit; with React to the Music, a Core Audio tap feeds an onset
    detector (from Open Glow) that finds kicks and snares in the Mac's sound.
 
 ```
@@ -222,7 +249,8 @@ Sources/OpenLyrics/
 ## Privacy
 
 OpenLyrics sends a track's title, artist, album and length to the lyrics sources you have turned
-on — nothing else leaves your Mac. No accounts, analytics or tracking. With React to the Music
+on, and — only when the player gives no cover art — its title, artist and album to the iTunes
+Search API (`itunes.apple.com`) to find the cover for the colors. Nothing else leaves your Mac. No accounts, analytics or tracking. With React to the Music
 on, the Mac's sound is analyzed on the Mac and never recorded or sent; the microphone is never
 used. Lyrics are cached in `~/Library/Caches/com.openlyrics.app` (**Clear Lyrics Cache** empties
 it).

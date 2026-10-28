@@ -99,6 +99,8 @@ final class Settings: ObservableObject {
     @Published var textSize: TextSize { didSet { defaults.set(textSize.rawValue, forKey: Key.textSize) } }
     @Published var style: Style { didSet { defaults.set(style.rawValue, forKey: Key.style) } }
     @Published var showIcons: Bool { didSet { defaults.set(showIcons, forKey: Key.showIcons) } }
+    /// Rain, cars, flags, the bridge constellation and the songs' easter eggs.
+    @Published var funEffects: Bool { didSet { defaults.set(funEffects, forKey: Key.funEffects) } }
     /// Words and icons bump gently with each sung word.
     @Published var beatBounce: Bool { didSet { defaults.set(beatBounce, forKey: Key.beatBounce) } }
     /// The track's title and artist above the lyrics on the lock screen.
@@ -137,6 +139,7 @@ final class Settings: ObservableObject {
             Key.showNextLine: true,
             Key.keepAwakeWhenLocked: true,
             Key.showIcons: true,
+            Key.funEffects: true,
             Key.beatBounce: true,
             Key.autoColors: true,
         ])
@@ -146,6 +149,7 @@ final class Settings: ObservableObject {
         textSize = defaults.string(forKey: Key.textSize).flatMap(TextSize.init) ?? .medium
         style = defaults.string(forKey: Key.style).flatMap(Style.init) ?? .stack
         showIcons = defaults.bool(forKey: Key.showIcons)
+        funEffects = defaults.bool(forKey: Key.funEffects)
         beatBounce = defaults.bool(forKey: Key.beatBounce)
         showTrackName = defaults.bool(forKey: Key.showTrackName)
         autoColors = defaults.bool(forKey: Key.autoColors)
@@ -207,6 +211,7 @@ final class Settings: ObservableObject {
         static let textSize = "textSize"
         static let style = "style"
         static let showIcons = "showIcons"
+        static let funEffects = "funEffects"
         static let beatBounce = "beatBounce"
         static let showTrackName = "showTrackName"
         static let autoColors = "autoColors"

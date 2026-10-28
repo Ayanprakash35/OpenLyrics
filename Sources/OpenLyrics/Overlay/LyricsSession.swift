@@ -31,6 +31,9 @@ final class LyricsSession: ObservableObject {
     /// All sung words in order, and which of them begin a line, for the beat bounce.
     private(set) var allWords: [LyricWord] = []
     private(set) var lineStartFlags: [Bool] = []
+    /// The song's effects and easter eggs, and each constellation's stars by its start time.
+    private(set) var sceneScript = SceneScript.empty
+    private(set) var constellations: [TimeInterval: [ConstellationNode]] = [:]
 
     /// Synced lyrics, a running clock and playback: there is something to follow along with.
     var hasSyncedLyrics: Bool { lyrics?.isSynced == true }
@@ -64,6 +67,14 @@ final class LyricsSession: ObservableObject {
         lensStarts = lensEntries.map(\.word.start)
         allWords = lensEntries.map(\.word)
         lineStartFlags = lensEntries.map { $0.index == 0 }
+        let script = new.map { SceneDirector.script(for: $0, track: .init(title: track?.title ?? "", artist: track?.artist ?? "")) } ?? .empty
+        sceneScript = script
+        constellations = [:]
+        if let new {
+            for event in script.events where event.kind == .constellation {
+                constellations[event.start] = ConstellationLayout.nodes(for: event, in: new)
+            }
+        }
     }
 
     /// The artwork colors to build lyric colors from: the full accent list once known, else the
