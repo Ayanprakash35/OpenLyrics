@@ -78,9 +78,10 @@ final class LyricsSession: ObservableObject {
     }
 
     /// The artwork colors to build lyric colors from: the full accent list once known, else the
-    /// two the palette keeps.
+    /// two the palette keeps; none without artwork, for the standard colors.
     var artworkAccents: [PaletteColor] {
-        accents.isEmpty ? [palette.primary, palette.secondary] : accents
+        guard accents.isEmpty else { return accents }
+        return palette == .fallback ? [] : [palette.primary, palette.secondary]
     }
 
     func setSearching() {

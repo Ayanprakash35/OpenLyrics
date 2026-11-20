@@ -48,6 +48,40 @@ enum Diagnostics {
         exit(0)
     }
 
+    /// Runs `--colors "Title" "Artist" ["Album"]` or `--colors <image file>` and exits, if asked:
+    /// finds the cover (in the iTunes catalog, as for streamed songs) and prints the colors the
+    /// lyrics would take from it.
+    static func runColorsIfRequested() {
+        let arguments = CommandLine.arguments
+        guard let flag = arguments.firstIndex(of: "--colors"), arguments.count > flag + 1 else { return }
+        let semaphore = DispatchSemaphore(value: 0)
+        Task.detached {
+            defer { semaphore.signal() }
+            let first = arguments[flag + 1]
+            let data: Data?
+            if FileManager.default.fileExists(atPath: first) {
+                data = try? Data(contentsOf: URL(fileURLWithPath: first))
+            } else {
+                guard arguments.count > flag + 2 else { print("usage: --colors \"Title\" \"Artist\" [\"Album\"]"); return }
+                data = await ArtworkLookup.artwork(artist: arguments[flag + 2], album: arguments.count > flag + 3 ? arguments[flag + 3] : "", title: first)
+            }
+            guard let data else { print("No cover found"); return }
+            guard let result = ColorExtractor.extract(fromImageData: data) else { print("Cover can't be decoded"); return }
+            func describe(_ color: PaletteColor) -> String {
+                let hsb = ColorExtractor.HSB(color)
+                return "\(color.hex) (hue \(Int(hsb.hue * 360))°, saturation \(Int(hsb.saturation * 100))%)"
+            }
+            print("Cover: \(result.source)")
+            print("Accents: " + result.accents.map(describe).joined(separator: ", "))
+            let colors = LyricColors.fromArtwork(accents: result.accents)
+            print("Words: " + colors.variants.map { $0.lyric.hex }.joined(separator: " "))
+            print("Boxes: " + colors.variants.map { $0.highlight.hex }.joined(separator: " ") + ", box text \(colors.boxedText.hex)")
+            print(colors == LyricColors.standard ? "→ standard colors (not from the cover)" : "→ from the cover")
+        }
+        semaphore.wait()
+        exit(0)
+    }
+
     /// Runs `--snapshot <directory>` and exits, if asked: renders the overlay with the demo lyrics
     /// at a few moments, on the desktop and lock-screen layouts, into PNGs over a sample backdrop.
     /// (Offscreen rendering can't draw the desktop's frosted backdrop; a dark tint stands in.)
@@ -82,6 +116,13 @@ enum Diagnostics {
             let words = StackLayout.words(in: demoLyrics, at: time, icons: true)
             save(KineticWordsView(words: words, colors: colors, baseSize: stackBase, time: time, beat: .none, drift: true),
                  width: 1000, height: 440, name: String(format: "stack-%05.2f", time))
+        }
+        // A black-and-white cover's whites and silvers.
+        var gray = LyricColors.fromArtwork(accents: [PaletteColor(red: 0.96, green: 0.96, blue: 0.96), PaletteColor(red: 0.76, green: 0.78, blue: 0.81)])
+        gray.perWord = colors.perWord
+        for time in [2.3, 3.5] {
+            save(KineticWordsView(words: StackLayout.words(in: demoLyrics, at: time, icons: true), colors: gray, baseSize: stackBase, time: time, beat: .none, drift: true),
+                 width: 1000, height: 440, name: String(format: "stack-gray-%05.2f", time))
         }
         let card = VStack(spacing: 0) {
             NowPlayingCard(title: "Word by Word", subtitle: "OpenLyrics Demo", status: "Word by word · NetEase",

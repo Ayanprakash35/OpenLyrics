@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.1 — 2026-11-20
+
+- **Album colors for black-and-white covers.** Only vivid colors were taken from a cover, so a
+  black-and-white one — *Sweater Weather*, say — fell back to the standard pink and colors
+  seemed not to sync. Those covers now give white, silver and gray lyrics, with the sung word
+  dark on a pale box. Songs with no cover at all keep the standard colors.
+- **Auto Sync with Album no longer switches itself off.** Opening one of the colors in Colors
+  could report the color it opened with as a change, which turned Auto Sync off; now only
+  picking a different color does.
+- `--colors "Title" "Artist"` prints the colors a song's cover gives the lyrics.
+
 ## 0.5.0 — 2026-10-28
 
 - **Effects.** Words set things off around the lyrics: rain streaking past on *rain* or *storm*,

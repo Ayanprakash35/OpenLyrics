@@ -161,8 +161,22 @@ struct LensLayoutTests {
 
 @Suite("Lyric colors")
 struct LyricColorTests {
-    @Test func grayCoversGetTheStandardColors() {
-        #expect(LyricColors.fromArtwork(.fallback) == .standard)
+    @Test func noArtworkGetsTheStandardColors() {
+        #expect(LyricColors.fromArtwork(accents: []) == .standard)
+    }
+
+    @Test func blackAndWhiteCoversGetTheirOwnGrays() {
+        // What the extractor reports for a black-and-white cover: a white and a silver.
+        let white = PaletteColor(red: 0.96, green: 0.96, blue: 0.96)
+        let silver = PaletteColor(red: 0.76, green: 0.78, blue: 0.81)
+        let colors = LyricColors.fromArtwork(accents: [white, silver])
+        #expect(colors != .standard)
+        for color in [colors.lyric, colors.highlight] + colors.variants.map(\.lyric) {
+            #expect(ColorExtractor.HSB(color).saturation < 0.1)
+        }
+        // The sung word's box is pale, so its text turns dark to stay readable.
+        #expect(ColorExtractor.HSB(colors.boxedText).brightness < 0.3)
+        #expect(Set(colors.variants.map(\.lyric)).count == colors.variants.count)
     }
 
     @Test func coversGiveGradientsFromTheirColors() {

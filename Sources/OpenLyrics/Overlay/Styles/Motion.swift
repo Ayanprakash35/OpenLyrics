@@ -182,7 +182,10 @@ struct LyricColors: Equatable, Sendable {
     /// `standard`.
     static func fromArtwork(accents: [PaletteColor]) -> LyricColors {
         let colors = accents.filter { ColorExtractor.HSB($0).saturation >= 0.18 }
-        guard let lead = colors.first else { return standard }
+        guard let lead = colors.first else {
+            // A black-and-white cover: its own whites and silvers, not the standard colors.
+            return accents.isEmpty ? standard : monochrome(accents)
+        }
         let second = colors.count > 1 ? colors[1] : hueShifted(lead, by: 0.07)
         let third = colors.count > 2 ? colors[2] : hueShifted(second, by: 0.05)
         // Each word in its own cover color: all of them, or the lead and its neighbors.
@@ -193,6 +196,27 @@ struct LyricColors: Equatable, Sendable {
             secondary: shade(third), secondaryEnd: shade(second),
             variants: wordColors.map { WordPalette(lyric: tint($0), highlight: vivid($0), secondary: shade($0)) }
         )
+    }
+
+    /// White, silver and gray in the cover's own slight tint, the sung word in a pale box with
+    /// dark text so it still stands out.
+    private static func monochrome(_ accents: [PaletteColor]) -> LyricColors {
+        let tint = ColorExtractor.HSB(accents[0])
+        func gray(_ brightness: Double, saturation: Double = 0.06) -> PaletteColor {
+            var hsb = tint
+            hsb.saturation = min(tint.saturation, saturation)
+            hsb.brightness = brightness
+            return hsb.rgb
+        }
+        let shades = [0.98, 0.84, 0.7]
+        var colors = LyricColors(
+            lyric: gray(0.98), lyricEnd: gray(0.82),
+            highlight: gray(0.95), highlightEnd: gray(0.78),
+            secondary: gray(0.55, saturation: 0.08), secondaryEnd: gray(0.45, saturation: 0.08),
+            variants: shades.map { WordPalette(lyric: gray($0), highlight: gray($0 - 0.04), secondary: gray($0 * 0.56, saturation: 0.08)) }
+        )
+        colors.boxedText = PaletteColor(red: 0.1, green: 0.1, blue: 0.12)
+        return colors
     }
 
     /// The two artwork colors `ArtworkPalette` keeps, for callers without the full accent list.

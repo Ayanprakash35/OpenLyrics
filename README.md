@@ -75,7 +75,8 @@ over your wallpaper, with the display kept awake until the song's done.
 ## Colors
 
 With **Auto Sync with Album** on, OpenLyrics reads up to four distinct colors from the cover art:
-a green and blue cover gives green and blue lyrics. Two ways to use them:
+a green and blue cover gives green and blue lyrics, and a black-and-white one white, silver and
+gray. Two ways to use them:
 
 | Each Word Its Own Color (default) | Blend Colors Within Words |
 | :---: | :---: |
